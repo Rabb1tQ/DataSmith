@@ -1,0 +1,39 @@
+{
+  "name": "datasmith",
+  "private": true,
+  "version": "0.1.0",
+  "description": "轻量级数据库管理工具",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "vue": "^3.4.21",
+    "vue-router": "^4.3.0",
+    "pinia": "^2.1.7",
+    "ant-design-vue": "^4.2.0",
+    "@ant-design/icons-vue": "^7.0.1",
+    "monaco-editor": "^0.47.0",
+    "vue-virtual-scroller": "^2.0.0-beta.8",
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-store": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "@tauri-apps/cli": "^2.0.0",
+    "typescript": "^5.4.2",
+    "vue-tsc": "^2.0.6",
+    "vite": "^5.1.6",
+    "vite-plugin-monaco-editor": "^1.1.0",
+    "@types/node": "^20.11.30",
+    "unplugin-vue-components": "^0.26.0",
+    "unplugin-auto-import": "^0.17.5"
+  }
+}
+
