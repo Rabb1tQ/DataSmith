@@ -646,6 +646,7 @@ watch(
   display: flex;
   gap: 12px;
   align-items: center;
+  user-select: none;
 }
 
 .row-count {

@@ -840,6 +840,7 @@ watch(() => props.table, () => {
   display: flex;
   gap: 12px;
   align-items: center;
+  user-select: none;
 }
 
 .designer-content {

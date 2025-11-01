@@ -1680,6 +1680,7 @@ defineExpose({
   height: 100%;
   overflow: auto;
   padding: 8px 0;
+  user-select: none;
 }
 
 .custom-tree {

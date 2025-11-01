@@ -62,3 +62,10 @@ code {
   -ms-user-select: none;
 }
 
+/* 禁止选择对话框标题和标签 */
+.ant-modal-title,
+.ant-tag {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
