@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import * as monaco from 'monaco-editor'
 import { message } from 'ant-design-vue'
 import { invoke } from '@tauri-apps/api/core'
