@@ -46,7 +46,7 @@
       :pagination="pagination"
       :scroll="{ x: 1200, y: 'calc(100vh - 350px)' }"
       :row-selection="rowSelection"
-      :row-key="(record) => record.__rowIndex"
+      :row-key="(record: any) => record.__rowIndex"
       size="small"
       bordered
       @change="handleTableChange"

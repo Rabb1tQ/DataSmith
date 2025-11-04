@@ -121,7 +121,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch, ref, computed, onMounted, onUnmounted } from 'vue'
+import { reactive, watch, ref, computed } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { useConnectionStore } from '@/stores/connection'
 import type { ConnectionConfig, DatabaseType } from '@/types/database'

@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, computed } from 'vue'
 import * as monaco from 'monaco-editor'
 import { message } from 'ant-design-vue'
 import { invoke } from '@tauri-apps/api/core'
@@ -47,7 +47,7 @@ const emit = defineEmits(['update:modelValue', 'created'])
 
 const visible = computed({
   get: () => props.modelValue,
-  set: (val) => emit('update:modelValue', val),
+  set: (val: boolean) => emit('update:modelValue', val),
 })
 
 const creating = ref(false)

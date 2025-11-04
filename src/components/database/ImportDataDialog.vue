@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { FileOutlined } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
 import { invoke } from '@tauri-apps/api/core'
@@ -75,7 +75,7 @@ const emit = defineEmits(['update:modelValue', 'imported'])
 
 const visible = computed({
   get: () => props.modelValue,
-  set: (val) => emit('update:modelValue', val),
+  set: (val: boolean) => emit('update:modelValue', val),
 })
 
 const importing = ref(false)
