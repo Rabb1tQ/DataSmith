@@ -173,7 +173,7 @@
 </template>
 
 <script setup lang="ts">
-import { h, onMounted, onUnmounted, watch } from 'vue'
+import { h, onMounted, onUnmounted, watch, ref, computed } from 'vue'
 import * as monaco from 'monaco-editor'
 import { registerSqlCompletionProvider, type SqlCompletionProvider } from '@/services/sqlAutocomplete'
 
