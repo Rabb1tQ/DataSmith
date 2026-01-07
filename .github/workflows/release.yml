@@ -6,6 +6,10 @@ on:
         description: 'Release version'
         required: true
         default: '0.1.0'
+      release_notes:
+        description: 'Release notes — what changed or added'
+        required: true
+        default: ''
 
 permissions:
   contents: write
@@ -64,13 +68,14 @@ jobs:
           name: DataSmith v${{ github.event.inputs.version }}
           body: |
             🚀 **DataSmith Release v${{ github.event.inputs.version }}**
-            
-            ✅ Windows 版本发布
             📝 数据库管理工具
-            
+
             ### 下载说明
             - `datasmith-windows.msi`: Windows MSI 安装包
             - `datasmith-windows-setup.exe`: Windows EXE 安装包
+
+            ### 发布说明
+            ${{ github.event.inputs.release_notes }}
           draft: false
           prerelease: false
           files: |
