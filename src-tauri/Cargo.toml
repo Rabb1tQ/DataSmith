@@ -35,7 +35,10 @@ sqlx = { version = "0.8", features = [
     "mysql",
     "postgres",
     "sqlite",
-    "any"
+    "any",
+    "chrono",
+    "uuid",
+    "json"
 ], optional = true }
 mongodb = { version = "3.4.1", optional = true }
 redis = { version = "1.0.2", features = ["tokio-comp"], optional = true }

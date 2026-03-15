@@ -73,14 +73,72 @@ impl PostgreSqlDatabase {
                 }
 
                 // 转换行数据
-                for row in &rows {
+                for (row_idx, row) in rows.iter().enumerate() {
                     let mut row_map = HashMap::new();
                     for (idx, column) in row.columns().iter().enumerate() {
-                        let value: Option<String> = row.try_get(idx).ok();
-                        row_map.insert(
-                            column.name().to_string(),
-                            serde_json::Value::String(value.unwrap_or_default()),
-                        );
+                        // 尝试多种数据类型获取，类似于 MySQL 的处理方式
+                        let value = if let Ok(s) = row.try_get::<String, _>(idx) {
+                            serde_json::Value::String(s)
+                        } else if let Ok(i) = row.try_get::<i64, _>(idx) {
+                            serde_json::Value::Number(serde_json::Number::from(i))
+                        } else if let Ok(i) = row.try_get::<i32, _>(idx) {
+                            serde_json::Value::Number(serde_json::Number::from(i as i64))
+                        } else if let Ok(i) = row.try_get::<i16, _>(idx) {
+                            serde_json::Value::Number(serde_json::Number::from(i as i64))
+                        } else if let Ok(f) = row.try_get::<f64, _>(idx) {
+                            serde_json::Number::from_f64(f)
+                                .map(serde_json::Value::Number)
+                                .unwrap_or(serde_json::Value::Null)
+                        } else if let Ok(f) = row.try_get::<f32, _>(idx) {
+                            serde_json::Number::from_f64(f as f64)
+                                .map(serde_json::Value::Number)
+                                .unwrap_or(serde_json::Value::Null)
+                        } else if let Ok(b) = row.try_get::<bool, _>(idx) {
+                            serde_json::Value::Bool(b)
+                        } else if let Ok(Some(bytes)) = row.try_get::<Option<Vec<u8>>, _>(idx) {
+                            // 处理 bytea 等二进制数据
+                            // 尝试转换为 UTF-8 字符串，如果失败则使用 base64 或 hex
+                            match String::from_utf8(bytes.clone()) {
+                                Ok(s) => serde_json::Value::String(s),
+                                Err(_) => {
+                                    // 对于非 UTF-8 数据，使用 hex 编码
+                                    let hex_string = bytes.iter()
+                                        .map(|b| format!("{:02x}", b))
+                                        .collect::<String>();
+                                    serde_json::Value::String(format!("\\x{}", hex_string))
+                                }
+                            }
+                        } else if let Ok(s) = row.try_get::<chrono::NaiveDateTime, _>(idx) {
+                            serde_json::Value::String(s.to_string())
+                        } else if let Ok(s) = row.try_get::<chrono::NaiveDate, _>(idx) {
+                            serde_json::Value::String(s.to_string())
+                        } else if let Ok(s) = row.try_get::<chrono::NaiveTime, _>(idx) {
+                            serde_json::Value::String(s.to_string())
+                        } else if let Ok(s) = row.try_get::<chrono::DateTime<chrono::Utc>, _>(idx) {
+                            serde_json::Value::String(s.to_string())
+                        } else if let Ok(json) = row.try_get::<serde_json::Value, _>(idx) {
+                            // 处理 JSON/JSONB 类型
+                            json
+                        } else if let Ok(uuid) = row.try_get::<sqlx::types::Uuid, _>(idx) {
+                            // 处理 UUID 类型
+                            serde_json::Value::String(uuid.to_string())
+                        } else if let Ok(None) = row.try_get::<Option<String>, _>(idx) {
+                            // 明确的 NULL 值
+                            serde_json::Value::Null
+                        } else {
+                            // 最后尝试获取原始字符串表示
+                            match row.try_get::<Option<String>, _>(idx) {
+                                Ok(Some(s)) => serde_json::Value::String(s),
+                                _ => serde_json::Value::Null,
+                            }
+                        };
+                        
+                        row_map.insert(column.name().to_string(), value.clone());
+                        
+                        // 打印第一行的数据作为调试
+                        if row_idx == 0 {
+                            println!("列 {} (类型: {:?}): {:?}", column.name(), column.type_info(), value);
+                        }
                     }
                     result_rows.push(row_map);
                 }
