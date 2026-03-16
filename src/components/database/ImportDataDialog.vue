@@ -201,6 +201,7 @@ async function importFromCSV(content: string) {
       connectionId: props.connectionId,
       database: props.database,
       table: props.table,
+      schema: props.schema,
       data,
     })
   }
@@ -215,6 +216,7 @@ async function importFromJSON(content: string) {
       connectionId: props.connectionId,
       database: props.database,
       table: props.table,
+      schema: props.schema,
       data: row,
     })
   }

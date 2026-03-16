@@ -230,6 +230,7 @@
       :connection-id="connectionId!"
       :database="currentDatabase"
       :table="currentTable"
+      :schema="currentSchema"
       @inserted="handleRecordInserted"
     />
     
@@ -1254,6 +1255,7 @@ function handleInsertRecord() {
   
   currentDatabase.value = selectedNode.value.metadata.database
   currentTable.value = selectedNode.value.metadata.name || selectedNode.value.title
+  currentSchema.value = selectedNode.value.metadata.schema || ''
   showInsertRecordDialog.value = true
 }
 

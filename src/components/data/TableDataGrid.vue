@@ -429,6 +429,7 @@ async function saveEdit(record: any, field: string | number | readonly (string |
       connectionId: props.connectionId,
       database: props.database,
       table: props.table,
+      schema: props.schema,
       column: fieldStr,
       value: newValue === null ? null : String(newValue),
       whereClause,
@@ -543,6 +544,7 @@ async function deleteSelected() {
             connectionId: props.connectionId,
             database: props.database,
             table: props.table,
+            schema: props.schema,
             whereClause,
           })
           

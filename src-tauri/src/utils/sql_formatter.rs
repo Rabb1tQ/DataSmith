@@ -10,11 +10,12 @@ impl SqlFormatter {
         db_type: &DatabaseType,
         database: &str,
         table: &str,
+        schema: Option<&str>,
         columns: &str,
         where_clause: Option<&str>,
         limit: Option<u64>,
     ) -> String {
-        let table_ref = Self::format_table_ref(db_type, database, table);
+        let table_ref = Self::format_table_ref(db_type, database, table, schema);
         let mut sql = format!("SELECT {} FROM {}", columns, table_ref);
         
         if let Some(where_cond) = where_clause {
@@ -33,11 +34,12 @@ impl SqlFormatter {
         db_type: &DatabaseType,
         database: &str,
         table: &str,
+        schema: Option<&str>,
         column: &str,
         value: Option<&str>,
         where_clause: &str,
     ) -> String {
-        let table_ref = Self::format_table_ref(db_type, database, table);
+        let table_ref = Self::format_table_ref(db_type, database, table, schema);
         let column_ref = Self::quote_identifier(db_type, column);
         let value_str = if let Some(v) = value {
             format!("'{}'", v.replace("'", "''"))
@@ -56,10 +58,11 @@ impl SqlFormatter {
         db_type: &DatabaseType,
         database: &str,
         table: &str,
+        schema: Option<&str>,
         columns: &[String],
         values: &[String],
     ) -> String {
-        let table_ref = Self::format_table_ref(db_type, database, table);
+        let table_ref = Self::format_table_ref(db_type, database, table, schema);
         let quoted_columns: Vec<String> = columns
             .iter()
             .map(|col| Self::quote_identifier(db_type, col))
@@ -78,14 +81,15 @@ impl SqlFormatter {
         db_type: &DatabaseType,
         database: &str,
         table: &str,
+        schema: Option<&str>,
         where_clause: &str,
     ) -> String {
-        let table_ref = Self::format_table_ref(db_type, database, table);
+        let table_ref = Self::format_table_ref(db_type, database, table, schema);
         format!("DELETE FROM {} WHERE {}", table_ref, where_clause)
     }
     
     /// 格式化表引用（database.table 或 table）
-    fn format_table_ref(db_type: &DatabaseType, database: &str, table: &str) -> String {
+    fn format_table_ref(db_type: &DatabaseType, database: &str, table: &str, schema: Option<&str>) -> String {
         match db_type {
             DatabaseType::SQLite => {
                 // SQLite 不使用 database.table 格式，只使用表名
@@ -100,11 +104,13 @@ impl SqlFormatter {
                 )
             }
             DatabaseType::PostgreSQL => {
-                // PostgreSQL 使用 schema.table 或 "schema"."table"
-                // 这里我们使用 database 作为 schema
+                // PostgreSQL 使用 schema.table 格式
+                // 如果提供了 schema 参数，使用 schema.table
+                // 否则默认使用 public schema
+                let schema_name = schema.unwrap_or("public");
                 format!(
                     "{}.{}",
-                    Self::quote_identifier(db_type, database),
+                    Self::quote_identifier(db_type, schema_name),
                     Self::quote_identifier(db_type, table)
                 )
             }

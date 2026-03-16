@@ -76,6 +76,7 @@ const props = defineProps<{
   connectionId: string
   database: string
   table: string
+  schema?: string
 }>()
 
 const emit = defineEmits(['update:modelValue', 'inserted'])
@@ -147,6 +148,7 @@ async function handleInsert() {
       connectionId: props.connectionId,
       database: props.database,
       table: props.table,
+      schema: props.schema,
       data,
     })
 

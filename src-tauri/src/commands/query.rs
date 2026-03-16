@@ -43,6 +43,7 @@ pub async fn update_table_data(
     connection_id: String,
     database: String,
     table: String,
+    schema: Option<String>,
     column: String,
     value: Option<String>,
     where_clause: String,
@@ -61,6 +62,7 @@ pub async fn update_table_data(
         &db_type,
         &database,
         &table,
+        schema.as_deref(),
         &column,
         value.as_deref(),
         &where_clause,
@@ -80,6 +82,7 @@ pub async fn insert_table_data(
     connection_id: String,
     database: String,
     table: String,
+    schema: Option<String>,
     data: std::collections::HashMap<String, Option<String>>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
@@ -105,6 +108,7 @@ pub async fn insert_table_data(
         &db_type,
         &database,
         &table,
+        schema.as_deref(),
         &columns,
         &values,
     );
@@ -123,6 +127,7 @@ pub async fn delete_table_data(
     connection_id: String,
     database: String,
     table: String,
+    schema: Option<String>,
     where_clause: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
@@ -139,6 +144,7 @@ pub async fn delete_table_data(
         &db_type,
         &database,
         &table,
+        schema.as_deref(),
         &where_clause,
     );
     
