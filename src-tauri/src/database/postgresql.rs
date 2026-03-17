@@ -26,8 +26,13 @@ impl PostgreSqlDatabase {
             config.username, config.password, config.host, config.port
         );
 
+        // 检查数据库名称是否存在且不为空字符串
         if let Some(ref database) = config.database {
-            url.push_str(&format!("/{}", database));
+            if !database.trim().is_empty() {
+                url.push_str(&format!("/{}", database));
+            } else {
+                url.push_str("/postgres"); // 空字符串时使用默认数据库
+            }
         } else {
             url.push_str("/postgres"); // 默认数据库
         }
@@ -251,19 +256,36 @@ impl PostgreSqlDatabase {
     ) -> DbResult<Vec<ColumnInfo>> {
         let schema_name = schema.unwrap_or("public");
 
+        // 使用 pg_attribute 和 pg_class 获取列信息，支持大小写敏感的表名
         let rows = sqlx::query(
             "SELECT
-                column_name,
-                data_type,
-                is_nullable,
-                column_default,
-                character_maximum_length,
-                numeric_precision,
-                numeric_scale,
-                col_description((table_schema||'.'||table_name)::regclass::oid, ordinal_position) as comment
-             FROM information_schema.columns
-             WHERE table_schema = $1 AND table_name = $2
-             ORDER BY ordinal_position"
+                a.attname as column_name,
+                pg_catalog.format_type(a.atttypid, a.atttypmod) as data_type,
+                NOT a.attnotnull as is_nullable,
+                pg_get_expr(d.adbin, d.adrelid) as column_default,
+                CASE
+                    WHEN t.typname IN ('varchar', 'char', 'bpchar') THEN a.atttypmod - 4
+                    ELSE NULL
+                END as character_maximum_length,
+                CASE
+                    WHEN t.typname IN ('numeric', 'decimal') THEN ((a.atttypmod - 4) >> 16) & 65535
+                    ELSE NULL
+                END as numeric_precision,
+                CASE
+                    WHEN t.typname IN ('numeric', 'decimal') THEN (a.atttypmod - 4) & 65535
+                    ELSE NULL
+                END as numeric_scale,
+                col_description(c.oid, a.attnum) as comment
+             FROM pg_catalog.pg_attribute a
+             JOIN pg_catalog.pg_class c ON a.attrelid = c.oid
+             JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+             LEFT JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
+             LEFT JOIN pg_catalog.pg_attrdef d ON (a.attrelid, a.attnum) = (d.adrelid, d.adnum)
+             WHERE n.nspname = $1
+               AND c.relname = $2
+               AND a.attnum > 0
+               AND NOT a.attisdropped
+             ORDER BY a.attnum"
         )
         .bind(schema_name)
         .bind(table)
@@ -271,12 +293,14 @@ impl PostgreSqlDatabase {
         .await
         .map_err(|e| DbError::QueryFailed(e.to_string()))?;
 
-        // 获取主键信息
+        // 获取主键信息 - 使用带引号的标识符
         let pk_rows = sqlx::query(
             "SELECT a.attname
              FROM pg_index i
              JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-             WHERE i.indrelid = ($1 || '.' || $2)::regclass AND i.indisprimary"
+             JOIN pg_class c ON c.oid = i.indrelid
+             JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = $1 AND c.relname = $2 AND i.indisprimary"
         )
         .bind(schema_name)
         .bind(table)
@@ -291,10 +315,11 @@ impl PostgreSqlDatabase {
 
         let mut columns = Vec::new();
         for row in rows {
-            let is_nullable: String = row.try_get(2).unwrap_or_default();
             let column_name: String = row.try_get(0).unwrap_or_default();
+            let data_type: String = row.try_get(1).unwrap_or_default();
+            let is_nullable: bool = row.try_get(2).unwrap_or(true);
             let column_default: Option<String> = row.try_get(3).ok();
-            
+
             let is_auto_increment = column_default
                 .as_ref()
                 .map(|s| s.contains("nextval"))
@@ -302,8 +327,8 @@ impl PostgreSqlDatabase {
 
             columns.push(ColumnInfo {
                 name: column_name.clone(),
-                data_type: row.try_get(1).unwrap_or_default(),
-                nullable: is_nullable.to_uppercase() == "YES",
+                data_type,
+                nullable: is_nullable,
                 default_value: column_default,
                 is_primary_key: primary_keys.contains(&column_name),
                 is_auto_increment,
@@ -438,9 +463,9 @@ impl DatabaseOperations for PostgreSqlDatabase {
             .ok_or_else(|| DbError::ConnectionFailed("未连接到数据库".to_string()))?;
 
         let rows = sqlx::query(
-            "SELECT datname, pg_encoding_to_char(encoding) AS encoding, datcollate 
-             FROM pg_database 
-             WHERE datistemplate = false AND datname NOT IN ('postgres')
+            "SELECT datname, pg_encoding_to_char(encoding) AS encoding, datcollate
+             FROM pg_database
+             WHERE datistemplate = false
              ORDER BY datname"
         )
         .fetch_all(pool)
@@ -488,18 +513,21 @@ impl DatabaseOperations for PostgreSqlDatabase {
                         .map_err(|e| DbError::ConnectionFailed(format!("连接到数据库 {} 失败: {}", db_name, e)))?;
                     
                     // 使用临时连接查询
+                    // 使用 pg_class 和 pg_namespace 获取原始表名（保持大小写）
                     let rows = sqlx::query(
-                        "SELECT 
-                            schemaname, 
-                            tablename, 
+                        "SELECT
+                            n.nspname as schemaname,
+                            c.relname as tablename,
                             'TABLE' as table_type,
                             NULL as engine,
                             NULL as table_rows,
-                            pg_total_relation_size(schemaname||'.'||tablename)::bigint / 1024 / 1024 as size_mb,
-                            obj_description((schemaname||'.'||tablename)::regclass) as comment
-                         FROM pg_tables 
-                         WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-                         ORDER BY schemaname, tablename"
+                            pg_total_relation_size(c.oid)::bigint / 1024 / 1024 as size_mb,
+                            obj_description(c.oid) as comment
+                         FROM pg_class c
+                         JOIN pg_namespace n ON n.oid = c.relnamespace
+                         WHERE c.relkind = 'r'
+                           AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+                         ORDER BY n.nspname, c.relname"
                     )
                     .fetch_all(&temp_pool)
                     .await
@@ -534,18 +562,21 @@ impl DatabaseOperations for PostgreSqlDatabase {
         };
 
         // 查询表列表
+        // 使用 pg_class 和 pg_namespace 获取原始表名（保持大小写）
         let rows = sqlx::query(
-            "SELECT 
-                schemaname, 
-                tablename, 
+            "SELECT
+                n.nspname as schemaname,
+                c.relname as tablename,
                 'TABLE' as table_type,
                 NULL as engine,
                 NULL as table_rows,
-                pg_total_relation_size(schemaname||'.'||tablename)::bigint / 1024 / 1024 as size_mb,
-                obj_description((schemaname||'.'||tablename)::regclass) as comment
-             FROM pg_tables 
-             WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-             ORDER BY schemaname, tablename"
+                pg_total_relation_size(c.oid)::bigint / 1024 / 1024 as size_mb,
+                obj_description(c.oid) as comment
+             FROM pg_class c
+             JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE c.relkind = 'r'
+               AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+             ORDER BY n.nspname, c.relname"
         )
         .fetch_all(pool)
         .await
@@ -597,18 +628,21 @@ impl DatabaseOperations for PostgreSqlDatabase {
                         .map_err(|e| DbError::ConnectionFailed(format!("连接到数据库 {} 失败: {}", db_name, e)))?;
                     
                     // 使用临时连接查询
+                    // 使用 pg_class 和 pg_namespace 获取原始视图名（保持大小写）
                     let rows = sqlx::query(
-                        "SELECT 
-                            schemaname, 
-                            viewname as tablename, 
+                        "SELECT
+                            n.nspname as schemaname,
+                            c.relname as viewname,
                             'VIEW' as table_type,
                             NULL as engine,
                             NULL as table_rows,
-                            pg_total_relation_size(schemaname||'.'||viewname)::bigint / 1024 / 1024 as size_mb,
-                            obj_description((schemaname||'.'||viewname)::regclass) as comment
-                         FROM pg_views 
-                         WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-                         ORDER BY schemaname, viewname"
+                            pg_total_relation_size(c.oid)::bigint / 1024 / 1024 as size_mb,
+                            obj_description(c.oid) as comment
+                         FROM pg_class c
+                         JOIN pg_namespace n ON n.oid = c.relnamespace
+                         WHERE c.relkind = 'v'
+                           AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+                         ORDER BY n.nspname, c.relname"
                     )
                     .fetch_all(&temp_pool)
                     .await
@@ -643,18 +677,21 @@ impl DatabaseOperations for PostgreSqlDatabase {
         };
 
         // 查询视图列表
+        // 使用 pg_class 和 pg_namespace 获取原始视图名（保持大小写）
         let rows = sqlx::query(
-            "SELECT 
-                schemaname, 
-                viewname as tablename, 
+            "SELECT
+                n.nspname as schemaname,
+                c.relname as viewname,
                 'VIEW' as table_type,
                 NULL as engine,
                 NULL as table_rows,
-                pg_total_relation_size(schemaname||'.'||viewname)::bigint / 1024 / 1024 as size_mb,
-                obj_description((schemaname||'.'||viewname)::regclass) as comment
-             FROM pg_views 
-             WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-             ORDER BY schemaname, viewname"
+                pg_total_relation_size(c.oid)::bigint / 1024 / 1024 as size_mb,
+                obj_description(c.oid) as comment
+             FROM pg_class c
+             JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE c.relkind = 'v'
+               AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+             ORDER BY n.nspname, c.relname"
         )
         .fetch_all(pool)
         .await

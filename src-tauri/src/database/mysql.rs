@@ -27,8 +27,11 @@ impl MySqlDatabase {
             config.username, config.password, config.host, config.port
         );
 
+        // 检查数据库名称是否存在且不为空字符串
         if let Some(ref database) = config.database {
-            url.push_str(&format!("/{}", database));
+            if !database.trim().is_empty() {
+                url.push_str(&format!("/{}", database));
+            }
         }
 
         // SSL 配置

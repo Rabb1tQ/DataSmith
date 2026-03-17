@@ -29,8 +29,10 @@ impl MongoDatabase {
         };
 
         let protocol = if config.ssl { "mongodb+srv" } else { "mongodb" };
-        
+
+        // 检查数据库名称是否存在且不为空字符串
         let database_part = config.database.as_ref()
+            .filter(|db| !db.trim().is_empty())
             .map(|db| format!("/{}", db))
             .unwrap_or_default();
 
