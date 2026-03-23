@@ -642,45 +642,80 @@ function applyFilter() {
 // 处理导出
 async function handleExport({ key }: { key: string | number }) {
   try {
-    let result: string
-    
     // 构建SQL查询（包含筛选条件）
-    let sql = `SELECT * FROM \`${props.database}\`.\`${props.table}\``
+    let sql = `SELECT * FROM ${formatTableRef()}`
     if (filterCondition.value) {
       sql += ` WHERE ${filterCondition.value}`
     }
     
+    // 先执行查询获取数据
+    const queryResult = await invoke<QueryResult>('execute_query', {
+      connectionId: props.connectionId,
+      sql,
+      database: props.database,
+    })
+    
+    if (queryResult.rows.length === 0) {
+      message.warning('没有数据可导出')
+      return
+    }
+    
+    // 生成默认文件名
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    const defaultFileName = `${props.table}_${timestamp}`
+    
+    // 打开保存文件对话框
+    const { save } = await import('@tauri-apps/plugin-dialog')
+    let extension = ''
+    switch (key) {
+      case 'csv': extension = '.csv'; break
+      case 'json': extension = '.json'; break
+      case 'sql': extension = '.sql'; break
+    }
+    
+    const filePath = await save({
+      defaultPath: defaultFileName + extension,
+      filters: [{
+        name: key === 'csv' ? 'CSV 文件' : key === 'json' ? 'JSON 文件' : 'SQL 文件',
+        extensions: [String(key)]
+      }]
+    })
+    
+    if (!filePath) {
+      return // 用户取消了
+    }
+    
+    let result: boolean
+    
     switch (key) {
       case 'csv':
-        result = await invoke<string>('export_to_csv', {
-          connectionId: props.connectionId,
-          database: props.database,
-          table: props.table,
-          query: sql,
+        result = await invoke<boolean>('export_to_csv', {
+          data: queryResult,
+          filePath,
         })
         break
       case 'json':
-        result = await invoke<string>('export_to_json', {
-          connectionId: props.connectionId,
-          database: props.database,
-          table: props.table,
-          query: sql,
+        result = await invoke<boolean>('export_to_json', {
+          data: queryResult,
+          filePath,
         })
         break
       case 'sql':
-        result = await invoke<string>('export_to_sql', {
-          connectionId: props.connectionId,
-          database: props.database,
-          table: props.table,
-          query: sql,
+        result = await invoke<boolean>('export_to_sql', {
+          data: queryResult,
+          tableName: props.table,
+          filePath,
         })
         break
       default:
         return
     }
     
-    message.success(`导出成功: ${result}`)
+    if (result) {
+      message.success(`导出成功: ${filePath}`)
+    }
   } catch (error: any) {
+    console.error('导出失败:', error)
     message.error(`导出失败: ${error}`)
   }
 }
