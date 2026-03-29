@@ -32,7 +32,6 @@
     <div
       v-if="contextMenuVisible"
       class="context-menu-overlay"
-      @click="contextMenuVisible = false"
     >
       <div
         class="context-menu"
@@ -268,7 +267,7 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, computed, nextTick, watch } from 'vue'
+import { h, ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import {
   TableOutlined,
   ReloadOutlined,
@@ -337,6 +336,21 @@ const contextMenuVisible = ref(false)
 const contextMenuX = ref(0)
 const contextMenuY = ref(0)
 const selectedNode = ref<TreeNode | null>(null)
+
+// 点击菜单外部关闭菜单
+function closeContextMenu() {
+  contextMenuVisible.value = false
+}
+
+onMounted(() => {
+  document.addEventListener('click', closeContextMenu)
+  document.addEventListener('contextmenu', closeContextMenu)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeContextMenu)
+  document.removeEventListener('contextmenu', closeContextMenu)
+})
 
 // 对话框状态
 const showCreateTableDialog = ref(false)
@@ -1026,6 +1040,7 @@ async function handleDoubleClick(node: TreeNode) {
 // 右键菜单
 function onRightClick({ event, node }: { event: MouseEvent; node: TreeNode }) {
   event.preventDefault()
+  event.stopPropagation()
   selectedNode.value = node
   
   // 先设置一个临时位置显示菜单（用于获取实际尺寸）
@@ -1716,6 +1731,7 @@ defineExpose({
   bottom: 0;
   z-index: 9999;
   background: transparent;
+  pointer-events: none;
 }
 
 .context-menu {
@@ -1725,6 +1741,7 @@ defineExpose({
   box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
   z-index: 10000;
   min-width: 180px;
+  pointer-events: auto;
 }
 
 .dark-mode .context-menu {

@@ -296,6 +296,7 @@ onMounted(() => {
     acceptSuggestionOnCommitCharacter: true,
     acceptSuggestionOnEnter: 'on',
     tabCompletion: 'on',
+    contextmenu: false,
   })
 
   // 注册 Redis 自动补全提供程序

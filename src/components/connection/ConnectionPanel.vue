@@ -97,7 +97,6 @@
     <div
       v-if="contextMenuVisible"
       class="context-menu-overlay"
-      @click="contextMenuVisible = false"
     >
       <div
         class="context-menu"
@@ -292,6 +291,7 @@ async function handleDisconnect(conn: ConnectionConfig) {
 // 右键菜单
 function handleContextMenu(event: MouseEvent, conn: ConnectionConfig) {
   event.preventDefault()
+  event.stopPropagation()
   selectedConnection.value = conn
   
   // 计算菜单位置，避免超出视口
@@ -402,13 +402,22 @@ function handleKeydown(event: KeyboardEvent) {
 }
 
 // 初始化加载连接列表
+// 点击菜单外部关闭菜单
+function closeContextMenu() {
+  contextMenuVisible.value = false
+}
+
 onMounted(() => {
   connectionStore.fetchConnections()
   document.addEventListener('keydown', handleKeydown)
+  document.addEventListener('click', closeContextMenu)
+  document.addEventListener('contextmenu', closeContextMenu)
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('click', closeContextMenu)
+  document.removeEventListener('contextmenu', closeContextMenu)
 })
 </script>
 
@@ -561,6 +570,7 @@ onUnmounted(() => {
   bottom: 0;
   z-index: 9999;
   background: transparent;
+  pointer-events: none;
 }
 
 .context-menu {
@@ -569,6 +579,7 @@ onUnmounted(() => {
   border-radius: 6px;
   box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
   z-index: 10000;
+  pointer-events: auto;
 }
 
 .dark-mode .context-menu {

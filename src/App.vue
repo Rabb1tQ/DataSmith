@@ -1,6 +1,6 @@
 <template>
   <a-config-provider :theme="themeConfig">
-    <div id="app" :class="{ 'dark-mode': isDark }">
+    <div id="app" :class="{ 'dark-mode': isDark }" @contextmenu.prevent>
       <router-view />
     </div>
   </a-config-provider>
