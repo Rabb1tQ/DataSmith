@@ -1715,10 +1715,11 @@ defineExpose({
 </script>
 
 <style scoped>
+/* 数据库树整体样式 */
 .database-tree {
   height: 100%;
   overflow: auto;
-  padding: 4px 0;
+  padding: 0;
   user-select: none;
 }
 

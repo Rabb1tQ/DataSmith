@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
+    "@tabler/icons-vue": "^3.41.1",
     "@tauri-apps/api": "2.5.0",
     "@tauri-apps/plugin-dialog": "2.5.0",
     "@tauri-apps/plugin-store": "^2.0.0",

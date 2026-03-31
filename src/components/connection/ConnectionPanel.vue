@@ -460,18 +460,22 @@ onUnmounted(() => {
 .panel-content {
   flex: 1;
   overflow: auto;
-  padding: 12px 0;
+  padding: 8px 0;
 }
 
 .connection-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .connection-group {
   border-radius: 6px;
+  margin: 2px 8px;
   overflow: hidden;
+}
+
+.connection-group:first-child {
+  margin-top: 6px;
 }
 
 .connection-item {
@@ -500,12 +504,22 @@ onUnmounted(() => {
   background-color: #111b26;
 }
 
+/* 连接项展开状态时的背景 */
+.connection-item.expanded {
+  background-color: #f0f0f0;
+  border-radius: 6px 6px 0 0;
+}
+
+.dark-mode .connection-item.expanded {
+  background-color: #1f1f1f;
+}
+
 .connection-expand-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  margin-right: 4px;
+  width: 16px;
+  height: 20px;
   flex-shrink: 0;
 }
 
@@ -514,6 +528,10 @@ onUnmounted(() => {
   color: #8c8c8c;
   transition: transform 0.2s;
   cursor: pointer;
+}
+
+.expand-icon.expanded {
+  transform: rotate(90deg);
 }
 
 .expand-icon:hover {
@@ -527,22 +545,25 @@ onUnmounted(() => {
 }
 
 .connection-icon {
-  font-size: 16px;
-  margin-right: 8px;
+  width: 20px;
+  height: 20px;
+  margin-right: 6px;
   color: #1890ff;
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .connection-icon i {
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .connection-info {
   flex: 1;
   overflow: hidden;
   user-select: none;
+  min-width: 0;
 }
 
 .connection-name {
@@ -556,27 +577,29 @@ onUnmounted(() => {
 .connection-detail {
   font-size: 12px;
   color: #8c8c8c;
-  margin-top: 2px;
+  margin-top: 1px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .connection-status {
-  margin-left: 8px;
+  margin-left: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
+/* 数据库对象区域 - 减少间距，增强视觉关联 */
 .database-objects {
-  background: #f8f9fa;
-  border-top: 1px solid #e8e8e8;
-  margin-top: 2px;
-  padding: 4px 0 4px 8px;
+  background: #fafafa;
+  border-top: none;
+  padding: 4px 0 4px 0;
   border-radius: 0 0 6px 6px;
 }
 
 .dark-mode .database-objects {
-  background: #1a1a1a;
-  border-top: 1px solid #303030;
+  background: #141414;
 }
 
 /* 右键菜单样式 */
