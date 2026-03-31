@@ -11,10 +11,9 @@
       
       <!-- 展开箭头：固定宽度，保证列对齐 -->
       <span class="tree-node-expand" @click="handleToggle">
-        <LoadingOutlined v-if="isLoading" spin />
+        <LoadingOutlined v-if="isLoading" spin class="expand-loading" />
         <template v-else>
-          <DownOutlined v-if="hasChildren && isExpanded" />
-          <RightOutlined v-else-if="hasChildren" />
+          <IconChevronRight v-if="hasChildren" class="expand-arrow" :class="{ expanded: isExpanded }" />
           <span v-else class="expand-placeholder"></span>
         </template>
       </span>
@@ -50,11 +49,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import {
-  LoadingOutlined,
-  RightOutlined,
-  DownOutlined,
-} from '@ant-design/icons-vue'
+import { LoadingOutlined } from '@ant-design/icons-vue'
 import {
   IconDatabase,
   IconTable,
@@ -68,6 +63,7 @@ import {
   IconServer,
   IconKey,
   IconList,
+  IconChevronRight,
 } from '@tabler/icons-vue'
 
 interface TreeNode {
@@ -230,26 +226,51 @@ const getIconClass = (type: string): string => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 20px;
+  width: 18px;
+  height: 22px;
   flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
 }
 
-.tree-node-expand :deep(.anticon) {
-  font-size: 12px;
+.tree-node-expand:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.dark-mode .tree-node-expand:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 展开箭头图标 */
+.expand-arrow {
+  width: 16px;
+  height: 16px;
   color: #8c8c8c;
-  transition: transform 0.2s;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  stroke-width: 2;
 }
 
-.tree-node-expand:hover :deep(.anticon) {
-  color: #1890ff;
+.expand-arrow.expanded {
+  transform: rotate(90deg);
+  color: #1677ff;
+}
+
+.tree-node-expand:hover .expand-arrow {
+  color: #1677ff;
+}
+
+/* 加载动画 */
+.expand-loading {
+  font-size: 14px;
+  color: #1677ff;
 }
 
 /* 占位符：无子节点时保持对齐 */
 .expand-placeholder {
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
 }
 
 /* 图标：固定宽度，保证列对齐 */
@@ -394,6 +415,24 @@ const getIconClass = (type: string): string => {
 
 .tree-node-children {
   width: 100%;
+  overflow: hidden;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 暗色模式下的动画保持一致 */
+.dark-mode .tree-node-children {
+  animation: slideDown 0.2s ease-out;
 }
 </style>
 

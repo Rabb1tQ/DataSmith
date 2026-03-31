@@ -36,13 +36,10 @@
             @contextmenu.prevent="handleContextMenu($event, conn)"
           >
             <div class="connection-expand-icon" @click.stop="handleToggleExpand(conn)">
-              <DownOutlined 
-                v-if="getConnectionStatus(conn.id) === 'connected' && expandedConnections.has(conn.id)" 
-                class="expand-icon expanded"
-              />
-              <RightOutlined 
-                v-else-if="getConnectionStatus(conn.id) === 'connected'" 
+              <IconChevronRight
+                v-if="getConnectionStatus(conn.id) === 'connected'"
                 class="expand-icon"
+                :class="{ expanded: expandedConnections.has(conn.id) }"
               />
               <span v-else class="expand-icon-placeholder"></span>
             </div>
@@ -152,16 +149,15 @@
 
 <script setup lang="ts">
 import { h, computed, ref, onMounted, onUnmounted } from 'vue'
-import { 
-  DatabaseOutlined, 
+import {
+  DatabaseOutlined,
   PlusOutlined,
   LinkOutlined,
   EditOutlined,
   DeleteOutlined,
   DisconnectOutlined,
-  DownOutlined,
-  RightOutlined,
 } from '@ant-design/icons-vue'
+import { IconChevronRight } from '@tabler/icons-vue'
 import { message, Modal } from 'ant-design-vue'
 import { useConnectionStore } from '@/stores/connection'
 import type { ConnectionConfig } from '@/types/database'
@@ -518,30 +514,44 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 20px;
+  width: 18px;
+  height: 22px;
   flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.connection-expand-icon:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.dark-mode .connection-expand-icon:hover {
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 .expand-icon {
-  font-size: 12px;
+  width: 16px;
+  height: 16px;
   color: #8c8c8c;
-  transition: transform 0.2s;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  stroke-width: 2;
 }
 
 .expand-icon.expanded {
   transform: rotate(90deg);
+  color: #1677ff;
 }
 
-.expand-icon:hover {
-  color: #1890ff;
+.connection-expand-icon:hover .expand-icon {
+  color: #1677ff;
 }
 
 .expand-icon-placeholder {
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
 }
 
 .connection-icon {
