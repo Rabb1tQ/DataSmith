@@ -1,6 +1,7 @@
 use super::traits::*;
 use async_trait::async_trait;
 use redis::{aio::MultiplexedConnection, Client};
+use url::Url;
 
 /// Redis 数据库连接
 pub struct RedisDatabase {
@@ -18,25 +19,27 @@ impl RedisDatabase {
 
     /// 构建 Redis 连接 URL
     fn build_connection_url(config: &ConnectionConfig) -> String {
-        let password = if !config.password.is_empty() {
-            if !config.username.is_empty() {
-                // Redis 6.0+ ACL 格式: username:password@
-                format!("{}:{}@", config.username, config.password)
-            } else {
-                // 传统密码格式: :password@
-                format!(":{}@", config.password)
-            }
-        } else {
-            String::new()
-        };
-
         let protocol = if config.ssl { "rediss" } else { "redis" };
-        let database = config.database.as_ref()
-            .and_then(|db| db.parse::<u8>().ok())
-            .map(|db| format!("/{}", db))
-            .unwrap_or_default();
+        let mut url = Url::parse(&format!("{}://{}:{}/", protocol, config.host, config.port))
+            .expect("Invalid Redis connection URL");
 
-        format!("{}://{}{}:{}{}", protocol, password, config.host, config.port, database)
+        // 设置用户名和密码（URL 编码）
+        if !config.password.is_empty() {
+            if !config.username.is_empty() {
+                // Redis 6.0+ ACL 格式
+                url.set_username(&config.username).unwrap();
+            }
+            url.set_password(Some(&config.password)).unwrap();
+        }
+
+        // 设置数据库编号
+        if let Some(ref database) = config.database {
+            if let Ok(db) = database.parse::<u8>() {
+                url.set_path(&format!("{}", db));
+            }
+        }
+
+        url.to_string()
     }
 }
 

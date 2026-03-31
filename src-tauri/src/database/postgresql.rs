@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use sqlx::{Column, PgPool, Pool, Postgres, Row};
 use std::collections::HashMap;
 use std::time::Instant;
+use url::Url;
 
 use super::traits::*;
 
@@ -21,30 +22,31 @@ impl PostgreSqlDatabase {
 
     /// 构建连接字符串
     fn build_connection_string(config: &ConnectionConfig) -> String {
-        let mut url = format!(
-            "postgres://{}:{}@{}:{}",
-            config.username, config.password, config.host, config.port
-        );
+        let mut url = Url::parse(&format!("postgres://{}:{}/", config.host, config.port))
+            .expect("Invalid PostgreSQL connection URL");
+        
+        url.set_username(&config.username).unwrap();
+        url.set_password(Some(&config.password)).unwrap();
 
         // 检查数据库名称是否存在且不为空字符串
         if let Some(ref database) = config.database {
             if !database.trim().is_empty() {
-                url.push_str(&format!("/{}", database));
+                url.set_path(database);
             } else {
-                url.push_str("/postgres"); // 空字符串时使用默认数据库
+                url.set_path("postgres"); // 空字符串时使用默认数据库
             }
         } else {
-            url.push_str("/postgres"); // 默认数据库
+            url.set_path("postgres"); // 默认数据库
         }
 
         // SSL 配置
         if config.ssl {
-            url.push_str("?sslmode=require");
+            url.query_pairs_mut().append_pair("sslmode", "require");
         } else {
-            url.push_str("?sslmode=prefer");
+            url.query_pairs_mut().append_pair("sslmode", "prefer");
         }
 
-        url
+        url.to_string()
     }
 
     /// 使用指定的连接池执行查询

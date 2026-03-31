@@ -3,6 +3,7 @@ use sqlx::mysql::MySqlPoolOptions;
 use sqlx::{Column, MySql, Pool, Row};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
+use url::Url;
 
 use super::traits::*;
 
@@ -22,24 +23,25 @@ impl MySqlDatabase {
 
     /// 构建连接字符串
     fn build_connection_string(config: &ConnectionConfig) -> String {
-        let mut url = format!(
-            "mysql://{}:{}@{}:{}",
-            config.username, config.password, config.host, config.port
-        );
+        let mut url = Url::parse(&format!("mysql://{}:{}/", config.host, config.port))
+            .expect("Invalid MySQL connection URL");
+        
+        url.set_username(&config.username).unwrap();
+        url.set_password(Some(&config.password)).unwrap();
 
         // 检查数据库名称是否存在且不为空字符串
         if let Some(ref database) = config.database {
             if !database.trim().is_empty() {
-                url.push_str(&format!("/{}", database));
+                url.set_path(database);
             }
         }
 
         // SSL 配置
         if config.ssl {
-            url.push_str("?ssl-mode=REQUIRED");
+            url.query_pairs_mut().append_pair("ssl-mode", "REQUIRED");
         }
 
-        url
+        url.to_string()
     }
 }
 
