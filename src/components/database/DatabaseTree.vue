@@ -332,6 +332,9 @@ const expandedKeys = ref<string[]>([])
 const selectedKeys = ref<string[]>([])
 const loadingNodes = ref<Set<string>>(new Set()) // 正在加载的节点
 
+// 双击处理锁，防止快速双击导致的竞态条件
+let isDoubleClickProcessing = false
+
 // 右键菜单
 const contextMenuVisible = ref(false)
 const contextMenuX = ref(0)
@@ -920,12 +923,28 @@ function handleSelect(node: TreeNode) {
 // 双击处理
 async function handleDoubleClick(node: TreeNode) {
   console.log('=== handleDoubleClick 被调用 ===')
-  console.log('节点类型:', node.type)
-  console.log('节点标题:', node.title)
-  console.log('节点 key:', node.key)
-  console.log('节点元数据:', node.metadata)
   
-  if (node.type === 'database') {
+  // 如果正在处理中，则忽略此次双击
+  if (isDoubleClickProcessing) {
+    console.log('双击处理中，忽略此次双击')
+    return
+  }
+  
+  isDoubleClickProcessing = true
+  
+  try {
+    console.log('节点类型:', node.type)
+    console.log('节点标题:', node.title)
+    console.log('节点 key:', node.key)
+    console.log('节点元数据:', node.metadata)
+    
+    // 如果节点正在加载中，则忽略此次双击
+    if (loadingNodes.value.has(node.key)) {
+      console.log('节点正在加载中，忽略双击')
+      return
+    }
+    
+    if (node.type === 'database') {
     console.log('处理数据库双击')
     // 双击数据库时展开/收缩并加载表
     const key = node.key
@@ -1037,6 +1056,9 @@ async function handleDoubleClick(node: TreeNode) {
     }
   } else {
     console.log('未处理的节点类型:', node.type)
+  }
+  } finally {
+    isDoubleClickProcessing = false
   }
 }
 

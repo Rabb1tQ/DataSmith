@@ -3,7 +3,6 @@
     <div
       :class="['tree-node-content', { selected: isSelected }]"
       @click="handleClick"
-      @dblclick="handleDblClick"
       @contextmenu="handleContextMenu"
     >
       <!-- 缩进区域：层级 × 固定步长 -->
@@ -96,6 +95,12 @@ const isSelected = computed(() => props.selectedKeys.includes(props.node.key))
 const isLoading = computed(() => props.loadingNodes.has(props.node.key))
 const hasChildren = computed(() => !props.node.isLeaf && props.node.type !== 'empty')
 
+// 自定义双击检测 - 立即响应模式
+let lastClickTime = 0
+let clickCount = 0
+let clickTimer: ReturnType<typeof setTimeout> | null = null
+const DOUBLE_CLICK_INTERVAL = 300 // 双击间隔（毫秒）
+
 const handleToggle = (e: Event) => {
   e.stopPropagation()
   if (hasChildren.value) {
@@ -103,13 +108,47 @@ const handleToggle = (e: Event) => {
   }
 }
 
-const handleClick = () => {
-  emit('select', props.node)
-}
-
-const handleDblClick = () => {
-  console.log('TreeNodeItem 双击:', props.node.title, props.node.type)
-  emit('dblclick', props.node)
+const handleClick = (e: MouseEvent) => {
+  e.preventDefault()
+  
+  const now = Date.now()
+  
+  // 如果距离上次点击时间超过双击间隔，重置计数
+  if (now - lastClickTime > DOUBLE_CLICK_INTERVAL) {
+    clickCount = 0
+    // 清除之前的单击定时器
+    if (clickTimer) {
+      clearTimeout(clickTimer)
+      clickTimer = null
+    }
+  }
+  
+  clickCount++
+  lastClickTime = now
+  
+  // 如果已经检测到双击（第二次点击），立即触发双击事件
+  if (clickCount === 2) {
+    // 清除单击定时器
+    if (clickTimer) {
+      clearTimeout(clickTimer)
+      clickTimer = null
+    }
+    clickCount = 0
+    console.log('TreeNodeItem 双击:', props.node.title, props.node.type)
+    emit('dblclick', props.node)
+    return
+  }
+  
+  // 第一次点击，设置定时器等待可能的第二次点击
+  // 如果在间隔时间内没有第二次点击，则触发单击
+  clickTimer = setTimeout(() => {
+    if (clickCount === 1) {
+      // 单击
+      emit('select', props.node)
+    }
+    clickCount = 0
+    clickTimer = null
+  }, DOUBLE_CLICK_INTERVAL)
 }
 
 const handleContextMenu = (e: MouseEvent) => {
