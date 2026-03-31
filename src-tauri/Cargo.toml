@@ -62,6 +62,9 @@ rust_xlsxwriter = "0.64"
 # SQL 解析
 sqlparser = "0.43"
 
+# URL 编码
+url = "2"
+
 # 工具库
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.7", features = ["v4", "serde"] }
