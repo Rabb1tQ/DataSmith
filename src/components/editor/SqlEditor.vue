@@ -22,6 +22,12 @@
         <a-button :icon="h(FormatPainterOutlined)" @click="formatSql">
           格式化
         </a-button>
+        <a-button
+          @click="toggleWordWrap"
+          :type="wordWrapEnabled ? 'primary' : 'default'"
+        >
+          {{ wordWrapEnabled ? '换行:开' : '换行:关' }}
+        </a-button>
         <a-button :icon="h(ClearOutlined)" @click="clearEditor">
           清空
         </a-button>
@@ -304,6 +310,7 @@ const resultTabKey = ref('result')
 const showHistory = ref(false)
 const showSaveDialog = ref(false)
 const showSnippets = ref(false)
+const wordWrapEnabled = ref(false)
 
 // 编辑器右键菜单
 const editorMenuVisible = ref(false)
@@ -578,6 +585,14 @@ function clearEditor() {
   editor?.setValue('')
   queryResults.value = []
   messages.value = []
+}
+
+// 切换自动换行
+function toggleWordWrap() {
+  if (!editor) return
+  wordWrapEnabled.value = !wordWrapEnabled.value
+  editor.updateOptions({ wordWrap: wordWrapEnabled.value ? 'on' : 'off' })
+  message.success(wordWrapEnabled.value ? '已开启自动换行' : '已关闭自动换行')
 }
 
 // 保存查询
