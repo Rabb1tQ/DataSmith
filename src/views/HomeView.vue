@@ -82,6 +82,7 @@
             @database-selected="handleDatabaseSelected"
             @new-query="handleNewQuery"
             @design-table="handleDesignTable"
+            @redis-key-renamed="handleRedisKeyRenamed"
           />
         </div>
       </div>
@@ -562,6 +563,38 @@ function handleDesignTable(data: any) {
   })
   
   mainTabKey.value = tabKey
+}
+
+// 处理 Redis 键重命名
+function handleRedisKeyRenamed(data: any) {
+  console.log('=== handleRedisKeyRenamed 被调用 ===')
+  console.log('旧键名:', data.oldKey)
+  console.log('新键名:', data.newKey)
+  console.log('connectionId:', data.connectionId)
+  
+  const connectionId = data.connectionId || connectionStore.activeConnectionId
+  
+  // 更新标签页中的键名
+  const oldTabKey = `redis-key-${connectionId}-${data.oldKey}`
+  const newTabKey = `redis-key-${connectionId}-${data.newKey}`
+  
+  const tabIndex = dataTabs.value.findIndex(tab => tab.key === oldTabKey)
+  if (tabIndex !== -1) {
+    // 更新标签页信息
+    dataTabs.value[tabIndex] = {
+      ...dataTabs.value[tabIndex],
+      key: newTabKey,
+      title: data.newKey,
+      table: data.newKey,
+    }
+    
+    // 如果当前选中的是这个标签，更新选中状态
+    if (mainTabKey.value === oldTabKey) {
+      mainTabKey.value = newTabKey
+    }
+    
+    console.log('标签页已更新:', dataTabs.value[tabIndex])
+  }
 }
 
 // 处理数据库选择 - 单击数据库时切换到 SQL 编辑器

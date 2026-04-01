@@ -79,6 +79,8 @@ fn main() {
             commands::redis::set_redis_set_value,
             commands::redis::set_redis_zset_value,
             commands::redis::set_redis_hash_value,
+            commands::redis::set_redis_key_ttl,
+            commands::redis::rename_redis_key,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]

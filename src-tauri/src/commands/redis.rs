@@ -354,6 +354,60 @@ pub async fn set_redis_hash_value(
     redis_db.set_hash_value(&key, fields).await.map_err(|e| e.to_string())
 }
 
+/// 设置键的 TTL
+#[tauri::command]
+pub async fn set_redis_key_ttl(
+    connection_id: String,
+    key: String,
+    ttl: i64,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let manager = state.connection_manager.lock().await;
+    let connections = manager
+        .get_connection(&connection_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let connections_guard = connections.read().await;
+    let db = connections_guard
+        .get(&connection_id)
+        .ok_or_else(|| "连接不存在".to_string())?;
+
+    let redis_db = db
+        .as_any()
+        .downcast_ref::<RedisDatabase>()
+        .ok_or_else(|| "不是 Redis 连接".to_string())?;
+
+    redis_db.set_key_ttl(&key, ttl).await.map_err(|e| e.to_string())
+}
+
+/// 重命名键
+#[tauri::command]
+pub async fn rename_redis_key(
+    connection_id: String,
+    old_key: String,
+    new_key: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let manager = state.connection_manager.lock().await;
+    let connections = manager
+        .get_connection(&connection_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let connections_guard = connections.read().await;
+    let db = connections_guard
+        .get(&connection_id)
+        .ok_or_else(|| "连接不存在".to_string())?;
+
+    let redis_db = db
+        .as_any()
+        .downcast_ref::<RedisDatabase>()
+        .ok_or_else(|| "不是 Redis 连接".to_string())?;
+
+    redis_db.rename_key(&old_key, &new_key).await.map_err(|e| e.to_string())
+}
+
 /// 将 Redis Value 转换为 JSON
 fn redis_value_to_json(value: redis::Value) -> serde_json::Value {
     match value {

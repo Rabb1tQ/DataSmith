@@ -1,16 +1,24 @@
 <template>
   <div class="redis-key-viewer">
     <a-spin :spinning="loading">
-      <a-card v-if="keyData" :title="`键: ${keyName}`" size="small">
+      <a-card v-if="keyData" size="small">
+        <template #title>
+          <div class="key-title">
+            <span>键: {{ keyName }}</span>
+            <a-button type="link" size="small" @click="showRenameModal = true">
+              <EditOutlined /> 重命名
+            </a-button>
+          </div>
+        </template>
         <template #extra>
           <a-space>
             <a-tag :color="getTypeColor(keyData.key_type)">
               {{ keyData.key_type }}
             </a-tag>
-            <a-tag v-if="keyData.ttl > 0" color="orange">
+            <a-tag v-if="keyData.ttl > 0" color="orange" style="cursor: pointer" @click="showTtlModal = true">
               TTL: {{ keyData.ttl }}秒
             </a-tag>
-            <a-tag v-else-if="keyData.ttl === -1" color="blue">
+            <a-tag v-else-if="keyData.ttl === -1" color="blue" style="cursor: pointer" @click="showTtlModal = true">
               永不过期
             </a-tag>
             <a-button size="small" danger @click="handleDelete">
@@ -27,7 +35,7 @@
             :disabled="!editing"
           />
           <a-space style="margin-top: 12px">
-            <a-button v-if="!editing" @click="editing = true">编辑</a-button>
+            <a-button v-if="!editing" type="primary" @click="editing = true">编辑</a-button>
             <template v-else>
               <a-button type="primary" @click="handleSaveString">保存</a-button>
               <a-button @click="cancelEdit">取消</a-button>
@@ -39,6 +47,7 @@
         <div v-else-if="keyData.key_type === 'list'">
           <div class="list-editor">
             <div v-for="(item, index) in editedListItems" :key="index" class="list-item-row">
+              <span class="item-index">[{{ index }}]</span>
               <a-input
                 v-model:value="editedListItems[index]"
                 :placeholder="`元素 ${index}`"
@@ -53,7 +62,7 @@
             </a-button>
           </div>
           <a-space style="margin-top: 12px">
-            <a-button v-if="!editing" @click="startEditList">编辑</a-button>
+            <a-button v-if="!editing" type="primary" @click="startEditList">编辑</a-button>
             <template v-else>
               <a-button type="primary" @click="handleSaveList">保存</a-button>
               <a-button @click="cancelEdit">取消</a-button>
@@ -79,7 +88,7 @@
             </a-button>
           </div>
           <a-space style="margin-top: 12px">
-            <a-button v-if="!editing" @click="startEditSet">编辑</a-button>
+            <a-button v-if="!editing" type="primary" @click="startEditSet">编辑</a-button>
             <template v-else>
               <a-button type="primary" @click="handleSaveSet">保存</a-button>
               <a-button @click="cancelEdit">取消</a-button>
@@ -110,7 +119,7 @@
             </a-button>
           </div>
           <a-space style="margin-top: 12px">
-            <a-button v-if="!editing" @click="startEditZset">编辑</a-button>
+            <a-button v-if="!editing" type="primary" @click="startEditZset">编辑</a-button>
             <template v-else>
               <a-button type="primary" @click="handleSaveZset">保存</a-button>
               <a-button @click="cancelEdit">取消</a-button>
@@ -141,7 +150,7 @@
             </a-button>
           </div>
           <a-space style="margin-top: 12px">
-            <a-button v-if="!editing" @click="startEditHash">编辑</a-button>
+            <a-button v-if="!editing" type="primary" @click="startEditHash">编辑</a-button>
             <template v-else>
               <a-button type="primary" @click="handleSaveHash">保存</a-button>
               <a-button @click="cancelEdit">取消</a-button>
@@ -157,13 +166,58 @@
       
       <a-empty v-else description="选择一个键查看详情" />
     </a-spin>
+    
+    <!-- TTL 设置对话框 -->
+    <a-modal
+      v-model:open="showTtlModal"
+      title="设置 TTL"
+      @ok="handleSetTtl"
+      :confirm-loading="ttlLoading"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="过期时间（秒）">
+          <a-input-number
+            v-model:value="newTtl"
+            :min="-1"
+            style="width: 100%"
+            placeholder="-1 表示永不过期"
+          />
+        </a-form-item>
+        <a-form-item label="常用预设">
+          <a-space wrap>
+            <a-button size="small" @click="newTtl = -1">永不过期</a-button>
+            <a-button size="small" @click="newTtl = 60">1分钟</a-button>
+            <a-button size="small" @click="newTtl = 3600">1小时</a-button>
+            <a-button size="small" @click="newTtl = 86400">1天</a-button>
+            <a-button size="small" @click="newTtl = 604800">7天</a-button>
+          </a-space>
+        </a-form-item>
+      </a-form>
+    </a-modal>
+    
+    <!-- 重命名对话框 -->
+    <a-modal
+      v-model:open="showRenameModal"
+      title="重命名键"
+      @ok="handleRename"
+      :confirm-loading="renameLoading"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="新键名">
+          <a-input
+            v-model:value="newKeyName"
+            placeholder="请输入新的键名"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import { DeleteOutlined, PlusOutlined, EditOutlined } from '@ant-design/icons-vue'
 import { invoke } from '@tauri-apps/api/core'
 
 const props = defineProps<{
@@ -171,12 +225,22 @@ const props = defineProps<{
   keyName: string
 }>()
 
-const emit = defineEmits(['deleted', 'updated'])
+const emit = defineEmits(['deleted', 'updated', 'renamed'])
 
 const loading = ref(false)
 const keyData = ref<any>(null)
 const editing = ref(false)
 const editedValue = ref('')
+
+// TTL 相关
+const showTtlModal = ref(false)
+const newTtl = ref(-1)
+const ttlLoading = ref(false)
+
+// 重命名相关
+const showRenameModal = ref(false)
+const newKeyName = ref('')
+const renameLoading = ref(false)
 
 // 列表编辑数据
 const editedListItems = ref<string[]>([])
@@ -222,6 +286,8 @@ async function loadKeyValue() {
     })
     
     keyData.value = result
+    newTtl.value = result.ttl
+    newKeyName.value = props.keyName
     
     // 根据类型初始化编辑数据
     if (result.key_type === 'string') {
@@ -292,6 +358,57 @@ function cancelEdit() {
     } else if (keyData.value.key_type === 'hash') {
       editedHashItems.value = formatHashData(keyData.value.value)
     }
+  }
+}
+
+// ===== TTL 设置 =====
+async function handleSetTtl() {
+  ttlLoading.value = true
+  try {
+    await invoke('set_redis_key_ttl', {
+      connectionId: props.connectionId,
+      key: props.keyName,
+      ttl: newTtl.value,
+    })
+    
+    message.success('TTL 设置成功')
+    showTtlModal.value = false
+    emit('updated')
+    loadKeyValue()
+  } catch (error: any) {
+    message.error(`设置 TTL 失败: ${error}`)
+  } finally {
+    ttlLoading.value = false
+  }
+}
+
+// ===== 重命名 =====
+async function handleRename() {
+  if (!newKeyName.value.trim()) {
+    message.error('请输入新的键名')
+    return
+  }
+  
+  if (newKeyName.value === props.keyName) {
+    message.error('新键名与原键名相同')
+    return
+  }
+  
+  renameLoading.value = true
+  try {
+    await invoke('rename_redis_key', {
+      connectionId: props.connectionId,
+      oldKey: props.keyName,
+      newKey: newKeyName.value,
+    })
+    
+    message.success('重命名成功')
+    showRenameModal.value = false
+    emit('renamed', { oldKey: props.keyName, newKey: newKeyName.value })
+  } catch (error: any) {
+    message.error(`重命名失败: ${error}`)
+  } finally {
+    renameLoading.value = false
   }
 }
 
@@ -488,6 +605,12 @@ watch(() => props.keyName, () => {
   overflow: auto;
 }
 
+.key-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .list-item-row,
 .set-item-row,
 .zset-item-row,
@@ -496,6 +619,12 @@ watch(() => props.keyName, () => {
   gap: 8px;
   margin-bottom: 8px;
   align-items: center;
+}
+
+.item-index {
+  width: 50px;
+  color: #666;
+  font-family: monospace;
 }
 
 .zset-item-row {

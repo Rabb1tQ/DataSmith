@@ -195,6 +195,46 @@
             </a-menu-item>
           </template>
           
+          <!-- Redis 键菜单 -->
+          <template v-if="selectedNode?.type === 'redis-key'">
+            <a-menu-item key="view-redis-key">
+              <EyeOutlined />
+              查看键值
+            </a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="rename-redis-key">
+              <EditOutlined />
+              重命名
+            </a-menu-item>
+            <a-menu-item key="set-ttl">
+              <ClockCircleOutlined />
+              设置 TTL
+            </a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="copy-key-name">
+              <CopyOutlined />
+              复制键名
+            </a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="delete-redis-key" danger>
+              <DeleteOutlined />
+              删除键
+            </a-menu-item>
+          </template>
+          
+          <!-- Redis keys 分组菜单 -->
+          <template v-if="selectedNode?.type === 'keys'">
+            <a-menu-item key="new-redis-key">
+              <PlusOutlined />
+              新建键
+            </a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="refresh-keys">
+              <ReloadOutlined />
+              刷新键列表
+            </a-menu-item>
+          </template>
+          
           <!-- 通用菜单 -->
           <a-menu-divider />
           <a-menu-item key="refresh">
@@ -263,6 +303,67 @@
       :database="currentDatabase"
       @imported="handleDatabaseImported"
     />
+    
+    <!-- Redis 重命名对话框 -->
+    <a-modal
+      v-model:open="showRedisRenameDialog"
+      title="重命名键"
+      @ok="doRenameRedisKey"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="新键名">
+          <a-input v-model:value="redisNewKeyName" placeholder="请输入新的键名" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+    
+    <!-- Redis TTL 设置对话框 -->
+    <a-modal
+      v-model:open="showRedisTtlDialog"
+      title="设置 TTL"
+      @ok="doSetRedisTtl"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="过期时间（秒）">
+          <a-input-number
+            v-model:value="redisNewTtl"
+            :min="-1"
+            style="width: 100%"
+            placeholder="-1 表示永不过期"
+          />
+        </a-form-item>
+        <a-form-item label="常用预设">
+          <a-space wrap>
+            <a-button size="small" @click="redisNewTtl = -1">永不过期</a-button>
+            <a-button size="small" @click="redisNewTtl = 60">1分钟</a-button>
+            <a-button size="small" @click="redisNewTtl = 3600">1小时</a-button>
+            <a-button size="small" @click="redisNewTtl = 86400">1天</a-button>
+          </a-space>
+        </a-form-item>
+      </a-form>
+    </a-modal>
+    
+    <!-- Redis 新建键对话框 -->
+    <a-modal
+      v-model:open="showNewRedisKeyDialog"
+      title="新建键"
+      @ok="doNewRedisKey"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="键名">
+          <a-input v-model:value="redisNewKeyName" placeholder="请输入键名" />
+        </a-form-item>
+        <a-form-item label="键类型">
+          <a-select default-value="string" style="width: 100%">
+            <a-select-option value="string">String</a-select-option>
+            <a-select-option value="list">List</a-select-option>
+            <a-select-option value="set">Set</a-select-option>
+            <a-select-option value="zset">ZSet</a-select-option>
+            <a-select-option value="hash">Hash</a-select-option>
+          </a-select>
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -276,6 +377,8 @@ import {
   FolderOpenOutlined,
   PlusOutlined,
   EyeOutlined,
+  EditOutlined,
+  ClockCircleOutlined,
   ExportOutlined,
   ImportOutlined,
   DeleteOutlined,
@@ -311,7 +414,7 @@ const props = defineProps<{
   dbType?: string
 }>()
 
-const emit = defineEmits(['table-selected', 'database-selected', 'new-query', 'design-table'])
+const emit = defineEmits(['table-selected', 'database-selected', 'new-query', 'design-table', 'redis-key-renamed'])
 
 // 判断当前数据库是否支持 SQL
 const isSqlSupported = computed(() => {
@@ -1241,6 +1344,32 @@ async function handleMenuClick({ key }: { key: string | number }) {
       handleRefreshGroup()
       break
       
+    // Redis 键操作
+    case 'view-redis-key':
+      handleDoubleClick(selectedNode.value)
+      break
+    case 'rename-redis-key':
+      handleRenameRedisKey()
+      break
+    case 'set-ttl':
+      handleSetRedisTtl()
+      break
+    case 'copy-key-name':
+      navigator.clipboard.writeText(selectedNode.value.title)
+      message.success('键名已复制到剪贴板')
+      break
+    case 'delete-redis-key':
+      handleDeleteRedisKey()
+      break
+      
+    // Redis keys 分组操作
+    case 'new-redis-key':
+      handleNewRedisKey()
+      break
+    case 'refresh-keys':
+      handleRefreshKeys()
+      break
+      
     // 通用操作
     case 'refresh':
       loadDatabases()
@@ -1720,6 +1849,166 @@ function handleRefreshGroup() {
   
   const objectType = getObjectTypeName(selectedNode.value.type)
   message.success(`${objectType}列表已刷新`)
+}
+
+// Redis 键操作
+const showRedisRenameDialog = ref(false)
+const showRedisTtlDialog = ref(false)
+const showNewRedisKeyDialog = ref(false)
+const redisNewKeyName = ref('')
+const redisNewTtl = ref(-1)
+
+// 重命名 Redis 键
+function handleRenameRedisKey() {
+  if (!selectedNode.value || selectedNode.value.type !== 'redis-key') return
+  redisNewKeyName.value = selectedNode.value.title
+  showRedisRenameDialog.value = true
+}
+
+// 设置 Redis 键 TTL
+function handleSetRedisTtl() {
+  if (!selectedNode.value || selectedNode.value.type !== 'redis-key') return
+  redisNewTtl.value = -1
+  showRedisTtlDialog.value = true
+}
+
+// 删除 Redis 键
+async function handleDeleteRedisKey() {
+  if (!selectedNode.value || selectedNode.value.type !== 'redis-key') return
+  
+  const keyName = selectedNode.value.title
+  
+  Modal.confirm({
+    title: '确认删除',
+    content: `确定要删除键 "${keyName}" 吗？`,
+    okText: '删除',
+    okType: 'danger',
+    cancelText: '取消',
+    async onOk() {
+      try {
+        await invoke('delete_redis_key', {
+          connectionId: props.connectionId,
+          key: keyName,
+        })
+        
+        message.success('删除成功')
+        // 刷新键列表
+        handleRefreshKeys()
+      } catch (error: any) {
+        message.error(`删除失败: ${error}`)
+      }
+    },
+  })
+}
+
+// 新建 Redis 键
+function handleNewRedisKey() {
+  redisNewKeyName.value = ''
+  showNewRedisKeyDialog.value = true
+}
+
+// 刷新键列表
+function handleRefreshKeys() {
+  if (!selectedNode.value) return
+  
+  // 找到 keys 节点
+  let keysNode = selectedNode.value
+  if (selectedNode.value.type === 'redis-key') {
+    // 如果选中的是键，找到父节点
+    const parentKey = selectedNode.value.key.split('-').slice(0, -1).join('-')
+    keysNode = findNodeByKey(treeData.value, parentKey) || selectedNode.value
+  }
+  
+  // 清空子节点，强制重新加载
+  keysNode.children = []
+  
+  // 如果节点已展开，重新加载数据
+  if (expandedKeys.value.includes(keysNode.key)) {
+    onLoadData(keysNode)
+  }
+  
+  message.success('键列表已刷新')
+}
+
+// 执行重命名
+async function doRenameRedisKey() {
+  if (!redisNewKeyName.value.trim()) {
+    message.error('请输入新的键名')
+    return
+  }
+  
+  if (!selectedNode.value || selectedNode.value.type !== 'redis-key') return
+  
+  const oldKey = selectedNode.value.title
+  const newKey = redisNewKeyName.value.trim()
+  
+  if (oldKey === newKey) {
+    message.error('新键名与原键名相同')
+    return
+  }
+  
+  try {
+    await invoke('rename_redis_key', {
+      connectionId: props.connectionId,
+      oldKey,
+      newKey,
+    })
+    
+    message.success('重命名成功')
+    showRedisRenameDialog.value = false
+    
+    // 刷新键列表
+    handleRefreshKeys()
+    
+    // 通知父组件更新标签页
+    emit('redis-key-renamed', { oldKey, newKey })
+  } catch (error: any) {
+    message.error(`重命名失败: ${error}`)
+  }
+}
+
+// 执行设置 TTL
+async function doSetRedisTtl() {
+  if (!selectedNode.value || selectedNode.value.type !== 'redis-key') return
+  
+  try {
+    await invoke('set_redis_key_ttl', {
+      connectionId: props.connectionId,
+      key: selectedNode.value.title,
+      ttl: redisNewTtl.value,
+    })
+    
+    message.success('TTL 设置成功')
+    showRedisTtlDialog.value = false
+  } catch (error: any) {
+    message.error(`设置 TTL 失败: ${error}`)
+  }
+}
+
+// 执行新建键
+async function doNewRedisKey() {
+  if (!redisNewKeyName.value.trim()) {
+    message.error('请输入键名')
+    return
+  }
+  
+  try {
+    // 创建一个空字符串键
+    await invoke('set_redis_key_value', {
+      connectionId: props.connectionId,
+      key: redisNewKeyName.value.trim(),
+      value: '',
+      ttl: null,
+    })
+    
+    message.success('键创建成功')
+    showNewRedisKeyDialog.value = false
+    
+    // 刷新键列表
+    handleRefreshKeys()
+  } catch (error: any) {
+    message.error(`创建键失败: ${error}`)
+  }
 }
 
 // 监听连接变化

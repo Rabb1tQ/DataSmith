@@ -496,5 +496,48 @@ impl RedisDatabase {
         
         Ok(())
     }
+    
+    /// 设置键的 TTL
+    pub async fn set_key_ttl(&self, key: &str, ttl: i64) -> DbResult<()> {
+        use redis::AsyncCommands;
+        
+        let conn = self
+            .connection
+            .as_ref()
+            .ok_or_else(|| DbError::ConnectionFailed("未连接到 Redis".to_string()))?;
+        
+        let mut conn = conn.clone();
+        
+        if ttl > 0 {
+            conn.expire::<_, ()>(key, ttl)
+                .await
+                .map_err(|e| DbError::QueryFailed(format!("设置 TTL 失败: {}", e)))?;
+        } else if ttl == -1 {
+            // 移除过期时间，设置为永不过期
+            conn.persist::<_, ()>(key)
+                .await
+                .map_err(|e| DbError::QueryFailed(format!("移除 TTL 失败: {}", e)))?;
+        }
+        
+        Ok(())
+    }
+    
+    /// 重命名键
+    pub async fn rename_key(&self, old_key: &str, new_key: &str) -> DbResult<()> {
+        use redis::AsyncCommands;
+        
+        let conn = self
+            .connection
+            .as_ref()
+            .ok_or_else(|| DbError::ConnectionFailed("未连接到 Redis".to_string()))?;
+        
+        let mut conn = conn.clone();
+        
+        conn.rename::<_, _, ()>(old_key, new_key)
+            .await
+            .map_err(|e| DbError::QueryFailed(format!("重命名失败: {}", e)))?;
+        
+        Ok(())
+    }
 }
 
