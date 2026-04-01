@@ -1,17 +1,18 @@
 <template>
   <a-modal
     v-model:open="visible"
-    :title="`还原数据库 - ${database}`"
+    :title="`导入SQL - ${database}`"
     width="600px"
-    @ok="handleRestore"
+    @ok="handleImport"
     @cancel="handleCancel"
-    :confirm-loading="restoring"
+    :confirm-loading="importing"
+    ok-text="执行"
   >
     <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }">
-      <a-form-item label="备份文件" required>
+      <a-form-item label="SQL文件" required>
         <a-input
           v-model:value="filePath"
-          placeholder="点击选择SQL备份文件"
+          placeholder="点击选择SQL文件"
           readonly
           @click="selectFile"
         >
@@ -21,26 +22,18 @@
         </a-input>
       </a-form-item>
 
-      <a-form-item label="还原模式">
-        <a-radio-group v-model:value="restoreMode">
-          <a-radio value="append">追加数据</a-radio>
-          <a-radio value="replace">替换数据</a-radio>
-        </a-radio-group>
-      </a-form-item>
-
       <a-form-item label="跳过错误">
         <a-switch v-model:checked="skipErrors" />
         <span style="margin-left: 8px; color: #999; font-size: 12px;">
-          遇到错误时继续执行
+          遇到错误时继续执行后续语句
         </span>
       </a-form-item>
     </a-form>
 
     <a-alert
-      v-if="restoreMode === 'replace'"
-      message="警告"
-      description="替换模式将删除现有数据，此操作不可恢复！建议先备份当前数据。"
-      type="warning"
+      message="提示"
+      description="将执行SQL文件中的所有语句，请确保文件内容可信。"
+      type="info"
       show-icon
       style="margin-top: 12px"
     />
@@ -60,16 +53,15 @@ const props = defineProps<{
   database: string
 }>()
 
-const emit = defineEmits(['update:modelValue', 'restored'])
+const emit = defineEmits(['update:modelValue', 'imported'])
 
 const visible = computed({
   get: () => props.modelValue,
   set: (val) => emit('update:modelValue', val),
 })
 
-const restoring = ref(false)
+const importing = ref(false)
 const filePath = ref('')
-const restoreMode = ref('append')
 const skipErrors = ref(false)
 
 async function selectFile() {
@@ -86,30 +78,17 @@ async function selectFile() {
   }
 }
 
-async function handleRestore() {
+async function handleImport() {
   if (!filePath.value) {
-    message.error('请选择备份文件')
+    message.error('请选择SQL文件')
     return
   }
 
-  if (restoreMode.value === 'replace') {
-    Modal.confirm({
-      title: '确认还原数据库',
-      content: '您选择了替换模式，这将删除数据库中的现有数据。建议先备份。确定继续吗？',
-      okText: '确定',
-      okType: 'danger',
-      cancelText: '取消',
-      onOk: async () => {
-        await doRestore()
-      },
-    })
-  } else {
-    await doRestore()
-  }
+  await doImport()
 }
 
-async function doRestore() {
-  restoring.value = true
+async function doImport() {
+  importing.value = true
   try {
     // 读取SQL文件
     const sqlContent = await invoke<string>('read_file', {
@@ -142,13 +121,13 @@ async function doRestore() {
       }
     }
 
-    message.success(`还原完成！成功: ${successCount}，失败: ${errorCount}`)
-    emit('restored')
+    message.success(`导入完成！成功: ${successCount}，失败: ${errorCount}`)
+    emit('imported')
     handleCancel()
   } catch (error: any) {
-    message.error(`还原失败: ${error}`)
+    message.error(`导入失败: ${error}`)
   } finally {
-    restoring.value = false
+    importing.value = false
   }
 }
 
@@ -215,7 +194,6 @@ function splitSqlStatements(sql: string): string[] {
 
 function handleCancel() {
   filePath.value = ''
-  restoreMode.value = 'append'
   skipErrors.value = false
   visible.value = false
 }

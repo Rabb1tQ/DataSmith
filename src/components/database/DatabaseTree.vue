@@ -64,9 +64,9 @@
               <ExportOutlined />
               备份数据库
             </a-menu-item>
-            <a-menu-item key="restore-database">
+            <a-menu-item key="import-sql">
               <ImportOutlined />
-              还原数据库
+              导入SQL
             </a-menu-item>
             <a-menu-divider v-if="canDropDatabase" />
             <a-menu-item v-if="canDropDatabase" key="drop-database" danger>
@@ -261,7 +261,7 @@
       v-model="showRestoreDatabaseDialog"
       :connection-id="connectionId!"
       :database="currentDatabase"
-      @restored="handleDatabaseRestored"
+      @imported="handleDatabaseImported"
     />
   </div>
 </template>
@@ -1169,8 +1169,8 @@ async function handleMenuClick({ key }: { key: string | number }) {
     case 'backup-database':
       handleBackupDatabase()
       break
-    case 'restore-database':
-      handleRestoreDatabase()
+    case 'import-sql':
+      handleImportSql()
       break
     case 'drop-database':
       handleDropDatabase()
@@ -1282,8 +1282,8 @@ function handleBackupDatabase() {
   showBackupDatabaseDialog.value = true
 }
 
-// 还原数据库
-function handleRestoreDatabase() {
+// 导入SQL
+function handleImportSql() {
   if (!selectedNode.value || selectedNode.value.type !== 'database') return
   
   currentDatabase.value = selectedNode.value.metadata.name
@@ -1396,8 +1396,8 @@ function handleDatabaseBacked() {
   message.success('数据库已备份')
 }
 
-function handleDatabaseRestored() {
-  // 可能需要刷新整个数据库树
+function handleDatabaseImported() {
+  // 刷新数据库树
   loadDatabases()
 }
 
