@@ -70,7 +70,18 @@
       </div>
     </div>
 
-    <div ref="editorContainer" class="editor-wrapper" @contextmenu="handleEditorContextMenu"></div>
+    <div
+      class="editor-section"
+      :style="{ height: editorHeight + 'px' }"
+    >
+      <div ref="editorContainer" class="editor-wrapper" @contextmenu="handleEditorContextMenu"></div>
+    </div>
+
+    <!-- 拖拽分隔条 -->
+    <div
+      class="editor-resizer"
+      @mousedown="startEditorResize"
+    ></div>
 
     <!-- 编辑器右键菜单 -->
     <div
@@ -311,6 +322,10 @@ const showHistory = ref(false)
 const showSaveDialog = ref(false)
 const showSnippets = ref(false)
 const wordWrapEnabled = ref(false)
+
+// 编辑器和结果面板高度调整
+const editorHeight = ref(300) // 默认编辑器高度 300px
+const isEditorResizing = ref(false)
 
 // 编辑器右键菜单
 const editorMenuVisible = ref(false)
@@ -973,6 +988,38 @@ onUnmounted(() => {
   document.removeEventListener('contextmenu', closeEditorMenu)
 })
 
+// 开始拖拽调整编辑器和结果面板高度
+function startEditorResize(e: MouseEvent) {
+  isEditorResizing.value = true
+  const startY = e.clientY
+  const startHeight = editorHeight.value
+
+  const doResize = (e: MouseEvent) => {
+    if (!isEditorResizing.value) return
+    
+    const delta = e.clientY - startY
+    const newHeight = startHeight + delta
+    
+    // 限制最小高度 100px，最大高度 600px
+    if (newHeight >= 100 && newHeight <= 600) {
+      editorHeight.value = newHeight
+    }
+  }
+
+  const stopResize = () => {
+    isEditorResizing.value = false
+    document.removeEventListener('mousemove', doResize)
+    document.removeEventListener('mouseup', stopResize)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+  }
+
+  document.body.style.cursor = 'row-resize'
+  document.body.style.userSelect = 'none'
+  document.addEventListener('mousemove', doResize)
+  document.addEventListener('mouseup', stopResize)
+}
+
 // 暴露方法供父组件调用
 defineExpose({
   setSelectedDatabase,
@@ -1007,18 +1054,55 @@ defineExpose({
   align-items: center;
 }
 
+.editor-section {
+  flex-shrink: 0;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+}
+
 .editor-wrapper {
   flex: 1;
-  min-height: 300px;
-  border-bottom: 1px solid #e8e8e8;
+  min-height: 100px;
 }
 
 .dark-mode .editor-wrapper {
   border-bottom-color: #303030;
 }
 
+.editor-resizer {
+  height: 4px;
+  cursor: row-resize;
+  background: #e8e8e8;
+  flex-shrink: 0;
+  position: relative;
+  transition: background-color 0.2s;
+}
+
+.editor-resizer:hover {
+  background: #1890ff;
+}
+
+.dark-mode .editor-resizer {
+  background: #303030;
+}
+
+.dark-mode .editor-resizer:hover {
+  background: #177ddc;
+}
+
+.editor-resizer::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -2px;
+  bottom: -2px;
+}
+
 .result-tabs {
-  height: 450px;
+  flex: 1;
+  min-height: 100px;
   overflow: hidden;
 }
 
