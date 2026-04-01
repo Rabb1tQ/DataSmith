@@ -244,14 +244,20 @@
       :footer="null"
       :width="500"
     >
-      <div style="text-align: center; padding: 20px;">
-        <DatabaseOutlined style="font-size: 64px; color: #1890ff; margin-bottom: 16px;" />
-        <h2>DataSmith</h2>
-        <p>版本: 1.0.0</p>
-        <p>一个现代化的数据库管理工具</p>
-        <a-divider />
-        <p style="color: #8c8c8c;">
+      <div style="text-align: center; padding: 24px;">
+        <DatabaseOutlined style="font-size: 48px; color: #1890ff; margin-bottom: 12px;" />
+        <h2 style="margin: 0 0 4px 0;">DataSmith</h2>
+<!--        <p style="color: #8c8c8c; margin: 0 0 12px 0;">版本 1.0.0</p>-->
+        <p style="margin: 0 0 8px 0;">轻量级数据库管理工具</p>
+        <p style="color: #8c8c8c; font-size: 13px; margin: 0 0 20px 0;">
           支持 MySQL, PostgreSQL, SQLite, MongoDB, Redis
+        </p>
+        <p style="margin: 0 0 8px 0;">
+          <GithubOutlined style="margin-right: 6px; color: #1890ff;" />
+          <a :href="githubUrl" target="_blank" style="color: #1890ff;">https://github.com/Rabb1tQ/DataSmith</a>
+        </p>
+        <p style="color: #8c8c8c; margin: 0;">
+          许可证: GPL-3.0 License
         </p>
       </div>
     </a-modal>
@@ -267,8 +273,8 @@
 
 <script setup lang="ts">
 import { h, reactive, ref, computed, nextTick, watch } from 'vue'
-import { 
-  DatabaseOutlined, 
+import {
+  DatabaseOutlined,
   BulbOutlined,
   PlusOutlined,
   SettingOutlined,
@@ -283,6 +289,7 @@ import {
   VerticalRightOutlined,
   VerticalLeftOutlined,
   DeleteOutlined,
+  GithubOutlined,
 } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { useAppStore } from '@/stores/app'
@@ -301,6 +308,9 @@ const showConnectionDialog = ref(false)
 const showSettings = ref(false)
 const showAbout = ref(false)
 const showGlobalSearch = ref(false)
+
+// GitHub 链接
+const githubUrl = 'https://github.com/Rabb1tQ/DataSmith'
 const mainTabKey = ref('sql')
 const editingConnection = ref<any>(null)
 const sqlEditorRef = ref<any>(null)
