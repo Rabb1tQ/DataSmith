@@ -22,7 +22,7 @@
         >
           <template #dropdownRender="{ menuNode }">
             <div>
-              <div>{{ menuNode }}</div>
+              <component :is="menuNode" />
               <a-divider style="margin: 4px 0" />
               <div style="padding: 4px 8px; cursor: pointer" @click="showAddCategory = true">
                 <PlusOutlined /> 添加新分类
@@ -214,6 +214,15 @@ watch(visible, (newVal) => {
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-all;
+}
+</style>
+
+<style>
+/* 暗色主题样式 */
+.dark-mode .sql-preview {
+  background: #1f1f1f;
+  border-color: #434343;
+  color: rgba(255, 255, 255, 0.85);
 }
 </style>
 

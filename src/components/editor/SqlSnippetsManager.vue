@@ -369,10 +369,6 @@ watch(() => props.visible, (visible) => {
   border-bottom: 1px solid #e8e8e8;
 }
 
-.dark-mode .snippets-toolbar {
-  border-bottom-color: #303030;
-}
-
 .snippets-content {
   display: flex;
   gap: 16px;
@@ -388,30 +384,10 @@ watch(() => props.visible, (visible) => {
   overflow-y: auto;
 }
 
-.dark-mode .snippets-list {
-  border-color: #303030;
-}
-
 .snippet-item {
   cursor: pointer;
   transition: background-color 0.2s;
   padding: 12px !important;
-}
-
-.snippet-item:hover {
-  background-color: #f5f5f5;
-}
-
-.dark-mode .snippet-item:hover {
-  background-color: #262626;
-}
-
-.snippet-item.active {
-  background-color: #e6f7ff;
-}
-
-.dark-mode .snippet-item.active {
-  background-color: #111b26;
 }
 
 .snippet-title {
@@ -436,6 +412,35 @@ watch(() => props.visible, (visible) => {
 .snippet-actions {
   padding-top: 12px;
   border-top: 1px solid #e8e8e8;
+}
+</style>
+
+<style>
+/* 亮色主题悬浮和选中样式 - 限定在非暗色模式下 */
+.snippets-list .ant-list-item.snippet-item:hover {
+  background-color: #f5f5f5;
+}
+
+.snippets-list .ant-list-item.snippet-item.active {
+  background-color: #e6f7ff;
+}
+
+/* 暗色主题样式 */
+.dark-mode .snippets-toolbar {
+  border-bottom-color: #303030;
+}
+
+.dark-mode .snippets-list {
+  border-color: #303030;
+}
+
+/* 暗色主题悬浮和选中样式 - 使用 body 选择器匹配 Modal 内的元素 */
+body.dark-mode .snippets-list .ant-list-item.snippet-item:hover {
+  background-color: #262626 !important;
+}
+
+body.dark-mode .snippets-list .ant-list-item.snippet-item.active {
+  background-color: #111b26 !important;
 }
 
 .dark-mode .snippet-actions {
