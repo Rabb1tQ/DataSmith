@@ -22,10 +22,22 @@
         </a-button>
         <a-dropdown>
           <a-button :icon="h(ExportOutlined)">
-            导出
+            导出全部
           </a-button>
           <template #overlay>
-            <a-menu @click="handleExport">
+            <a-menu @click="handleExportAll">
+              <a-menu-item key="csv">导出为 CSV</a-menu-item>
+              <a-menu-item key="json">导出为 JSON</a-menu-item>
+              <a-menu-item key="sql">导出为 SQL</a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
+        <a-dropdown>
+          <a-button :icon="h(ExportOutlined)" :disabled="selectedRowKeys.length === 0">
+            导出选中项
+          </a-button>
+          <template #overlay>
+            <a-menu @click="handleExportSelected">
               <a-menu-item key="csv">导出为 CSV</a-menu-item>
               <a-menu-item key="json">导出为 JSON</a-menu-item>
               <a-menu-item key="sql">导出为 SQL</a-menu-item>
@@ -639,35 +651,75 @@ function applyFilter() {
   loadData()
 }
 
-// 处理导出
-async function handleExport({ key }: { key: string | number }) {
+// 导出全部
+async function handleExportAll({ key }: { key: string | number }) {
+  await doExport(String(key), false)
+}
+
+// 导出选中项
+async function handleExportSelected({ key }: { key: string | number }) {
+  await doExport(String(key), true)
+}
+
+// 执行导出
+async function doExport(format: string, selectedOnly: boolean) {
   try {
-    // 构建SQL查询（包含筛选条件）
-    let sql = `SELECT * FROM ${formatTableRef()}`
-    if (filterCondition.value) {
-      sql += ` WHERE ${filterCondition.value}`
+    let dataToExport: QueryResult
+    
+    if (selectedOnly) {
+      // 导出选中项
+      if (selectedRowKeys.value.length === 0) {
+        message.warning('请先选择要导出的数据')
+        return
+      }
+      
+      // 从当前数据源中筛选选中的行
+      const selectedRows = dataSource.value.filter(row => {
+        const rowKey = row.__rowIndex
+        return selectedRowKeys.value.some(key => String(key) === String(rowKey))
+      })
+      
+      // 构建导出数据
+      dataToExport = {
+        columns: columns.value.map(col => col.dataIndex),
+        rows: selectedRows.map(row => {
+          const cleanRow: Record<string, any> = {}
+          columns.value.forEach(col => {
+            cleanRow[col.dataIndex] = row[col.dataIndex]
+          })
+          return cleanRow
+        }),
+        affected_rows: selectedRows.length,
+        execution_time_ms: 0
+      }
+    } else {
+      // 导出全部 - 从数据库查询
+      let sql = `SELECT * FROM ${formatTableRef()}`
+      if (filterCondition.value) {
+        sql += ` WHERE ${filterCondition.value}`
+      }
+      
+      dataToExport = await invoke<QueryResult>('execute_query', {
+        connectionId: props.connectionId,
+        sql,
+        database: props.database,
+      })
     }
     
-    // 先执行查询获取数据
-    const queryResult = await invoke<QueryResult>('execute_query', {
-      connectionId: props.connectionId,
-      sql,
-      database: props.database,
-    })
-    
-    if (queryResult.rows.length === 0) {
+    if (dataToExport.rows.length === 0) {
       message.warning('没有数据可导出')
       return
     }
     
     // 生成默认文件名
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-    const defaultFileName = `${props.table}_${timestamp}`
+    const suffix = selectedOnly ? '_selected' : ''
+    const defaultFileName = `${props.table}${suffix}_${timestamp}`
     
     // 打开保存文件对话框
     const { save } = await import('@tauri-apps/plugin-dialog')
     let extension = ''
-    switch (key) {
+    switch (format) {
       case 'csv': extension = '.csv'; break
       case 'json': extension = '.json'; break
       case 'sql': extension = '.sql'; break
@@ -676,8 +728,8 @@ async function handleExport({ key }: { key: string | number }) {
     const filePath = await save({
       defaultPath: defaultFileName + extension,
       filters: [{
-        name: key === 'csv' ? 'CSV 文件' : key === 'json' ? 'JSON 文件' : 'SQL 文件',
-        extensions: [String(key)]
+        name: format === 'csv' ? 'CSV 文件' : format === 'json' ? 'JSON 文件' : 'SQL 文件',
+        extensions: [format]
       }]
     })
     
@@ -687,22 +739,22 @@ async function handleExport({ key }: { key: string | number }) {
     
     let result: boolean
     
-    switch (key) {
+    switch (format) {
       case 'csv':
         result = await invoke<boolean>('export_to_csv', {
-          data: queryResult,
+          data: dataToExport,
           filePath,
         })
         break
       case 'json':
         result = await invoke<boolean>('export_to_json', {
-          data: queryResult,
+          data: dataToExport,
           filePath,
         })
         break
       case 'sql':
         result = await invoke<boolean>('export_to_sql', {
-          data: queryResult,
+          data: dataToExport,
           tableName: props.table,
           filePath,
         })
