@@ -3,7 +3,7 @@ use crate::AppState;
 use tauri::State;
 
 /// 根据数据库类型生成表引用 SQL
-fn format_table_reference(db_type: DatabaseType, database: &str, table: &str, schema: Option<&str>) -> String {
+fn format_table_reference(db_type: &DatabaseType, database: &str, table: &str, schema: Option<&str>) -> String {
     match db_type {
         DatabaseType::PostgreSQL => {
             let schema_name = schema.unwrap_or("public");
@@ -133,11 +133,33 @@ pub async fn truncate_table(
         .await
         .map_err(|e| e.to_string())?;
     
-    let table_ref = format_table_reference(db_type, &database, &table, schema.as_deref());
-    let sql = format!("TRUNCATE TABLE {}", table_ref);
+    let table_ref = format_table_reference(&db_type, &database, &table, schema.as_deref());
     
+    // 根据数据库类型构建 SQL 脚本
+    // 重要：MySQL 需要将所有语句作为一次 execute_query 调用传入，
+    // 这样才能在同一个连接上执行，SET FOREIGN_KEY_CHECKS 的效果才能延续
+    let sql_script = match db_type {
+        DatabaseType::MySQL => {
+            // MySQL: 在一个脚本中禁用外键检查、执行 TRUNCATE、重新启用外键检查
+            format!(
+                "SET FOREIGN_KEY_CHECKS = 0;\nTRUNCATE TABLE {};\nSET FOREIGN_KEY_CHECKS = 1;",
+                table_ref
+            )
+        }
+        DatabaseType::PostgreSQL => {
+            // PostgreSQL: 使用 TRUNCATE ... CASCADE 自动处理外键约束
+            format!("TRUNCATE TABLE {} CASCADE;", table_ref)
+        }
+        _ => {
+            // 其他数据库: 直接执行 TRUNCATE
+            format!("TRUNCATE TABLE {};", table_ref)
+        }
+    };
+    
+    // 直接将整个脚本传给 execute_query，让 MySQL 内部处理多条语句
+    // MySQL 的 execute_query 实现会在同一个连接上依次执行所有语句
     manager
-        .execute_query(&connection_id, &sql, Some(&database))
+        .execute_query(&connection_id, &sql_script, Some(&database))
         .await
         .map_err(|e| e.to_string())
 }
@@ -158,7 +180,7 @@ pub async fn drop_table(
         .await
         .map_err(|e| e.to_string())?;
     
-    let table_ref = format_table_reference(db_type, &database, &table, schema.as_deref());
+    let table_ref = format_table_reference(&db_type, &database, &table, schema.as_deref());
     let sql = format!("DROP TABLE {}", table_ref);
     
     manager
@@ -308,7 +330,7 @@ pub async fn drop_view(
         .await
         .map_err(|e| e.to_string())?;
     
-    let view_ref = format_table_reference(db_type, &database, &view, schema.as_deref());
+    let view_ref = format_table_reference(&db_type, &database, &view, schema.as_deref());
     let sql = format!("DROP VIEW {}", view_ref);
     
     manager
