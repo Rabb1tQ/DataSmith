@@ -53,6 +53,7 @@ declare module 'vue' {
     ATextarea: typeof import('ant-design-vue/es')['Textarea']
     ATimeline: typeof import('ant-design-vue/es')['Timeline']
     ATimelineItem: typeof import('ant-design-vue/es')['TimelineItem']
+    ATooltip: typeof import('ant-design-vue/es')['Tooltip']
     BackupDatabaseDialog: typeof import('./components/database/BackupDatabaseDialog.vue')['default']
     ConnectionDialog: typeof import('./components/connection/ConnectionDialog.vue')['default']
     ConnectionPanel: typeof import('./components/connection/ConnectionPanel.vue')['default']

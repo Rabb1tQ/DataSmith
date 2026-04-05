@@ -1,5 +1,6 @@
 pub mod traits;
 pub mod manager;
+pub mod sql_splitter;
 
 #[cfg(feature = "mysql")]
 pub mod mysql;
@@ -18,4 +19,5 @@ pub mod redis;
 
 pub use traits::*;
 pub use manager::ConnectionManager;
+pub use sql_splitter::{SqlSplitter, SqlDialect, is_query_statement, truncate_sql};
 

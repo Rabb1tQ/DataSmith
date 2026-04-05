@@ -101,6 +101,44 @@ export interface QueryResult {
 }
 
 /**
+ * 单条SQL语句执行结果
+ */
+export interface StatementResult {
+  /** SQL语句（截断显示） */
+  sql: string
+  /** 是否执行成功 */
+  success: boolean
+  /** 错误信息（如果有） */
+  error?: string
+  /** 影响行数 */
+  affected_rows: number
+  /** 执行时间（毫秒） */
+  execution_time_ms: number
+  /** 是否为查询语句 */
+  is_query: boolean
+  /** 查询结果列名（如果是查询语句） */
+  columns: string[]
+  /** 查询结果行（如果是查询语句） */
+  rows: Record<string, any>[]
+}
+
+/**
+ * 批量SQL执行结果
+ */
+export interface BatchQueryResult {
+  /** 各语句执行结果 */
+  statements: StatementResult[]
+  /** 总执行时间（毫秒） */
+  total_time_ms: number
+  /** 成功语句数 */
+  success_count: number
+  /** 失败语句数 */
+  failed_count: number
+  /** 总影响行数 */
+  total_affected_rows: number
+}
+
+/**
  * 数据库对象类型
  */
 export type DatabaseObjectType = 

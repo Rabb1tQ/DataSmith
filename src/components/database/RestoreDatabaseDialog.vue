@@ -95,33 +95,28 @@ async function doImport() {
       path: filePath.value,
     })
 
-    // 分割SQL语句（按分号分割，但要注意字符串和注释中的分号）
-    const statements = splitSqlStatements(sqlContent)
+    // 使用后端的 execute_sql_script 命令，与SQL编辑器保持一致
+    const result = await invoke<{
+      success_count: number
+      failed_count: number
+      total_affected_rows: number
+      total_time_ms: number
+    }>('execute_sql_script', {
+      connectionId: props.connectionId,
+      sql: sqlContent,
+      database: props.database,
+    })
 
-    let successCount = 0
-    let errorCount = 0
-
-    for (const statement of statements) {
-      const sql = statement.trim()
-      if (!sql || sql.startsWith('--')) continue
-
-      try {
-        await invoke('execute_query', {
-          connectionId: props.connectionId,
-          sql,
-          database: props.database,
-        })
-        successCount++
-      } catch (error: any) {
-        errorCount++
-        if (!skipErrors.value) {
-          throw new Error(`执行SQL失败: ${error}`)
-        }
-        console.error('SQL执行错误（已跳过）:', error)
+    if (result.failed_count > 0) {
+      if (skipErrors.value) {
+        message.warning(`导入完成！成功: ${result.success_count}，失败: ${result.failed_count}`)
+      } else {
+        message.error(`导入失败！成功: ${result.success_count}，失败: ${result.failed_count}`)
       }
+    } else {
+      message.success(`导入完成！成功: ${result.success_count}，耗时: ${result.total_time_ms}ms`)
     }
-
-    message.success(`导入完成！成功: ${successCount}，失败: ${errorCount}`)
+    
     emit('imported')
     handleCancel()
   } catch (error: any) {
@@ -129,67 +124,6 @@ async function doImport() {
   } finally {
     importing.value = false
   }
-}
-
-function splitSqlStatements(sql: string): string[] {
-  const statements: string[] = []
-  let current = ''
-  let inString = false
-  let stringChar = ''
-  let inComment = false
-
-  for (let i = 0; i < sql.length; i++) {
-    const char = sql[i]
-    const nextChar = sql[i + 1]
-
-    // 处理注释
-    if (!inString && char === '-' && nextChar === '-') {
-      inComment = true
-      current += char
-      continue
-    }
-
-    if (inComment && char === '\n') {
-      inComment = false
-      current += char
-      continue
-    }
-
-    if (inComment) {
-      current += char
-      continue
-    }
-
-    // 处理字符串
-    if (!inString && (char === '"' || char === "'")) {
-      inString = true
-      stringChar = char
-      current += char
-      continue
-    }
-
-    if (inString && char === stringChar && sql[i - 1] !== '\\') {
-      inString = false
-      current += char
-      continue
-    }
-
-    // 处理分号
-    if (!inString && char === ';') {
-      current += char
-      statements.push(current.trim())
-      current = ''
-      continue
-    }
-
-    current += char
-  }
-
-  if (current.trim()) {
-    statements.push(current.trim())
-  }
-
-  return statements
 }
 
 function handleCancel() {

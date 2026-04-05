@@ -223,12 +223,16 @@ async function importFromJSON(content: string) {
 }
 
 async function importFromSQL(content: string) {
-  // 直接执行SQL
-  await invoke('execute_query', {
+  // 使用 execute_sql_script 批量执行SQL，支持正确的分割
+  const result = await invoke<{ success_count: number; failed_count: number }>('execute_sql_script', {
     connectionId: props.connectionId,
     sql: content,
     database: props.database,
   })
+  
+  if (result.failed_count > 0) {
+    message.warning(`导入完成，成功 ${result.success_count} 条，失败 ${result.failed_count} 条`)
+  }
 }
 
 function handleCancel() {

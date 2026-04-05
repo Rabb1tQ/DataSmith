@@ -39,6 +39,41 @@ pub struct QueryResult {
     pub execution_time_ms: u128,
 }
 
+/// 单条SQL语句执行结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatementResult {
+    /// SQL语句（截断显示）
+    pub sql: String,
+    /// 是否执行成功
+    pub success: bool,
+    /// 错误信息（如果有）
+    pub error: Option<String>,
+    /// 影响行数
+    pub affected_rows: u64,
+    /// 执行时间（毫秒）
+    pub execution_time_ms: u128,
+    /// 是否为查询语句
+    pub is_query: bool,
+    /// 查询结果（如果是查询语句）
+    pub columns: Vec<String>,
+    pub rows: Vec<HashMap<String, serde_json::Value>>,
+}
+
+/// 批量SQL执行结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchQueryResult {
+    /// 各语句执行结果
+    pub statements: Vec<StatementResult>,
+    /// 总执行时间（毫秒）
+    pub total_time_ms: u128,
+    /// 成功语句数
+    pub success_count: usize,
+    /// 失败语句数
+    pub failed_count: usize,
+    /// 总影响行数
+    pub total_affected_rows: u64,
+}
+
 /// 数据库元数据 - 数据库信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseInfo {

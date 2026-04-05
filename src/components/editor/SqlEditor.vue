@@ -169,6 +169,21 @@
       <a-tabs v-model:activeKey="resultTabKey">
         <a-tab-pane key="result" tab="结果">
           <div class="result-content">
+            <!-- 批量执行结果摘要 -->
+            <div v-if="showBatchResult && batchResult" class="batch-result-summary">
+              <a-alert :type="batchResult.failed_count === 0 ? 'success' : 'warning'" show-icon>
+                <template #message>
+                  <a-space>
+                    <span>执行完成</span>
+                    <a-tag color="success">{{ batchResult.success_count }} 成功</a-tag>
+                    <a-tag v-if="batchResult.failed_count > 0" color="error">{{ batchResult.failed_count }} 失败</a-tag>
+                    <a-tag color="blue">{{ batchResult.total_affected_rows }} 行受影响</a-tag>
+                    <a-tag color="default">{{ batchResult.total_time_ms }} ms</a-tag>
+                  </a-space>
+                </template>
+              </a-alert>
+            </div>
+            
             <div v-if="queryResults.length > 0" class="result-info">
               <a-space>
                 <a-tag color="success">
@@ -205,6 +220,44 @@
               bordered
             />
             <a-empty v-else description="暂无查询结果" />
+          </div>
+        </a-tab-pane>
+        <a-tab-pane v-if="showBatchResult && batchResult" key="script" tab="执行详情">
+          <div class="script-result-content">
+            <a-table
+              :columns="[
+                { title: '#', dataIndex: 'index', width: 50 },
+                { title: 'SQL', dataIndex: 'sql', ellipsis: true },
+                { title: '状态', dataIndex: 'status', width: 80 },
+                { title: '影响行数', dataIndex: 'affected_rows', width: 100 },
+                { title: '耗时(ms)', dataIndex: 'execution_time_ms', width: 100 },
+                { title: '错误信息', dataIndex: 'error', ellipsis: true },
+              ]"
+              :data-source="batchResult.statements.map((s, i) => ({
+                key: i,
+                index: i + 1,
+                sql: s.sql,
+                status: s.success ? '成功' : '失败',
+                affected_rows: s.affected_rows,
+                execution_time_ms: s.execution_time_ms,
+                error: s.error || '-',
+              }))"
+              :scroll="{ x: 'max-content' }"
+              size="small"
+              bordered
+              :row-class-name="(record: any) => record.status === '失败' ? 'row-error' : ''"
+            >
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.dataIndex === 'status'">
+                  <a-tag :color="record.status === '成功' ? 'success' : 'error'">
+                    {{ record.status }}
+                  </a-tag>
+                </template>
+                <template v-else-if="column.dataIndex === 'error'">
+                  <span :class="{ 'error-text': record.error !== '-' }">{{ record.error }}</span>
+                </template>
+              </template>
+            </a-table>
           </div>
         </a-tab-pane>
         <a-tab-pane key="messages" tab="消息">
@@ -303,7 +356,7 @@ import { message } from 'ant-design-vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useConnectionStore } from '@/stores/connection'
 import { useAppStore } from '@/stores/app'
-import type { QueryResult } from '@/types/database'
+import type { QueryResult, BatchQueryResult } from '@/types/database'
 import SaveQueryDialog from './SaveQueryDialog.vue'
 import SqlSnippetsManager from './SqlSnippetsManager.vue'
 
@@ -323,6 +376,10 @@ const showSaveDialog = ref(false)
 const showSnippets = ref(false)
 const wordWrapEnabled = ref(false)
 
+// 批量执行结果
+const batchResult = ref<BatchQueryResult | null>(null)
+const showBatchResult = ref(false)
+
 // 编辑器和结果面板高度调整
 const editorHeight = ref(300) // 默认编辑器高度 300px
 const isEditorResizing = ref(false)
@@ -340,7 +397,7 @@ const availableDatabases = ref<any[]>([])
 const loadingDatabases = ref(false)
 
 interface Message {
-  type: 'success' | 'error' | 'info'
+  type: 'success' | 'error' | 'info' | 'warning'
   text: string
   time: string
 }
@@ -534,27 +591,50 @@ async function executeQuery() {
   queryResults.value = []
   currentResultIndex.value = 0
   resultTabKey.value = 'result'
+  batchResult.value = null
+  showBatchResult.value = false
 
   const databaseInfo = selectedDatabase.value ? ` (数据库: ${selectedDatabase.value})` : ''
-  addMessage('info', `执行查询...${databaseInfo}`)
+  addMessage('info', `执行SQL脚本...${databaseInfo}`)
   
   // 调试信息
   console.log('执行查询 - 选中的数据库:', selectedDatabase.value)
   console.log('执行查询 - 传递的database参数:', selectedDatabase.value || null)
 
   try {
-    const result = await invoke<QueryResult>('execute_query', {
+    // 使用新的批量执行命令，支持DELIMITER语法
+    const result = await invoke<BatchQueryResult>('execute_sql_script', {
       connectionId: connectionStore.activeConnectionId,
       sql,
       database: selectedDatabase.value || null,
     })
 
-    queryResults.value = [result]
-    const databaseInfo = selectedDatabase.value ? ` (数据库: ${selectedDatabase.value})` : ''
-    addMessage(
-      'success',
-      `查询成功！影响 ${result.affected_rows} 行，耗时 ${result.execution_time_ms} ms${databaseInfo}`
-    )
+    batchResult.value = result
+    showBatchResult.value = true
+
+    // 提取所有查询结果用于显示
+    const queryStmts = result.statements.filter(s => s.is_query && s.success)
+    if (queryStmts.length > 0) {
+      queryResults.value = queryStmts.map(s => ({
+        columns: s.columns,
+        rows: s.rows,
+        affected_rows: s.affected_rows,
+        execution_time_ms: s.execution_time_ms,
+      }))
+    }
+
+    const dbInfo = selectedDatabase.value ? ` (数据库: ${selectedDatabase.value})` : ''
+    if (result.failed_count === 0) {
+      addMessage(
+        'success',
+        `执行完成！成功 ${result.success_count} 条，影响 ${result.total_affected_rows} 行，耗时 ${result.total_time_ms} ms${dbInfo}`
+      )
+    } else {
+      addMessage(
+        'warning',
+        `执行完成！成功 ${result.success_count} 条，失败 ${result.failed_count} 条，耗时 ${result.total_time_ms} ms${dbInfo}`
+      )
+    }
 
     // 保存到历史
     saveToHistory(sql)
@@ -562,10 +642,11 @@ async function executeQuery() {
     // 查询失败时清空之前的结果，避免用户误以为还在显示旧数据
     queryResults.value = []
     currentResultIndex.value = 0
+    batchResult.value = null
     
-    const databaseInfo = selectedDatabase.value ? ` (数据库: ${selectedDatabase.value})` : ''
-    addMessage('error', `查询失败${databaseInfo}: ${error}`)
-    message.error(`查询失败: ${error}`)
+    const dbInfo = selectedDatabase.value ? ` (数据库: ${selectedDatabase.value})` : ''
+    addMessage('error', `执行失败${dbInfo}: ${error}`)
+    message.error(`执行失败: ${error}`)
   } finally {
     executing.value = false
   }
@@ -1166,6 +1247,27 @@ defineExpose({
   color: #8c8c8c;
   font-size: 12px;
   margin-left: 40px;
+}
+
+/* 批量执行结果样式 */
+.batch-result-summary {
+  margin-bottom: 12px;
+}
+
+.script-result-content {
+  padding: 12px;
+}
+
+.row-error {
+  background-color: #fff2f0;
+}
+
+.dark-mode .row-error {
+  background-color: #2c1618;
+}
+
+.error-text {
+  color: #ff4d4f;
 }
 </style>
 

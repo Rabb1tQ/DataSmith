@@ -439,7 +439,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
                     };
                     
                     let connection_string = Self::build_connection_string(&temp_config);
-                    
+
                     let temp_pool = PgPool::connect(&connection_string)
                         .await
                         .map_err(|e| DbError::ConnectionFailed(format!("连接到数据库 {} 失败: {}", db_name, e)))?;

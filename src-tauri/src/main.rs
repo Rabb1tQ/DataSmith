@@ -40,6 +40,7 @@ fn main() {
             commands::connection::disconnect_database,
             commands::query::execute_query,
             commands::query::execute_query_batch,
+            commands::query::execute_sql_script,
             commands::query::update_table_data,
             commands::query::insert_table_data,
             commands::query::delete_table_data,
