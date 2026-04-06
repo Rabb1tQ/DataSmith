@@ -924,5 +924,9 @@ watch(
 .dark-mode .table-data-grid .ant-table-thead > tr > th {
   background: #1f1f1f !important;
 }
+
+.dark-mode .table-data-grid .ant-table-tbody > tr:hover > td {
+  background: #262626 !important;
+}
 </style>
 
