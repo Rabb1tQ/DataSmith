@@ -81,7 +81,7 @@ pub async fn view_table_data(
     
     let limit_clause = match limit {
         Some(l) => format!(" LIMIT {}", l),
-        None => " LIMIT 1000".to_string(),
+        None => String::new(),
     };
     
     // 获取数据库类型

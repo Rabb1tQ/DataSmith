@@ -125,12 +125,14 @@
             placeholder="例如: id > 100 AND status = 'active'"
           />
         </a-form-item>
-        <a-form-item label="LIMIT">
+        <a-form-item label="LIMIT (留空不限制)">
           <a-input-number
             v-model:value="limitRows"
             :min="1"
-            :max="10000"
+            :max="1000000"
             style="width: 100%"
+            placeholder="不限制"
+            allow-clear
           />
         </a-form-item>
       </a-form>
@@ -197,7 +199,7 @@ const selectedRowKeys = ref<string[]>([])
 const totalRows = ref(0)
 const showFilterDialog = ref(false)
 const filterCondition = ref('')
-const limitRows = ref(1000)
+const limitRows = ref<number | null>(null)
 const tableStructure = ref<any[]>([]) // 表结构信息
 const primaryKeys = ref<string[]>([]) // 主键列
 
@@ -269,7 +271,9 @@ async function loadData() {
       sql += ` WHERE ${filterCondition.value}`
     }
     
-    sql += ` LIMIT ${limitRows.value}`
+    if (limitRows.value && limitRows.value > 0) {
+      sql += ` LIMIT ${limitRows.value}`
+    }
     
     console.log('步骤2: 执行查询...')
     console.log('SQL:', sql)

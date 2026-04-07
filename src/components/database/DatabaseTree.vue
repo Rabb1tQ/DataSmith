@@ -1224,7 +1224,6 @@ async function handleViewData() {
       table: selectedNode.value.metadata.name || selectedNode.value.title,
       database: selectedNode.value.metadata.database,
       schema: selectedNode.value.metadata.schema, // PostgreSQL 需要 schema 参数
-      limit: 1000,
     })
     
     // 发射事件，让父组件处理数据显示
