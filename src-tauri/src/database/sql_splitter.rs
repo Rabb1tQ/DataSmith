@@ -654,14 +654,78 @@ impl SqlSplitter {
 
     /// 提取语句
     fn extract_statement(&self, chars: &[char], start: usize, end: usize) -> String {
-        // 移除前导空白
         let mut stmt_start = start;
-        while stmt_start < end && chars[stmt_start].is_whitespace() {
-            stmt_start += 1;
+        let mut stmt_end = end;
+
+        // 移除前导空白和注释
+        while stmt_start < stmt_end {
+            let c = chars[stmt_start];
+            
+            // 跳过空白
+            if c.is_whitespace() {
+                stmt_start += 1;
+                continue;
+            }
+            
+            // 跳过单行注释 -- 或 #
+            if c == '-' && stmt_start + 1 < stmt_end && chars[stmt_start + 1] == '-' {
+                // 检查是否是 -- 注释（后面需要跟空格或直接到行尾）
+                if stmt_start + 2 < stmt_end {
+                    let next_char = chars[stmt_start + 2];
+                    if next_char == ' ' || next_char == '\t' {
+                        // 是单行注释，跳到行尾
+                        stmt_start += 2;
+                        while stmt_start < stmt_end && chars[stmt_start] != '\n' && chars[stmt_start] != '\r' {
+                            stmt_start += 1;
+                        }
+                        // 跳过换行符
+                        if stmt_start < stmt_end && chars[stmt_start] == '\r' {
+                            stmt_start += 1;
+                        }
+                        if stmt_start < stmt_end && chars[stmt_start] == '\n' {
+                            stmt_start += 1;
+                        }
+                        continue;
+                    }
+                }
+                // 不是注释，跳出循环
+                break;
+            }
+            
+            // 跳过 # 开头的单行注释
+            if c == '#' {
+                stmt_start += 1;
+                while stmt_start < stmt_end && chars[stmt_start] != '\n' && chars[stmt_start] != '\r' {
+                    stmt_start += 1;
+                }
+                // 跳过换行符
+                if stmt_start < stmt_end && chars[stmt_start] == '\r' {
+                    stmt_start += 1;
+                }
+                if stmt_start < stmt_end && chars[stmt_start] == '\n' {
+                    stmt_start += 1;
+                }
+                continue;
+            }
+            
+            // 跳过多行注释 /* */
+            if c == '/' && stmt_start + 1 < stmt_end && chars[stmt_start + 1] == '*' {
+                stmt_start += 2;
+                while stmt_start + 1 < stmt_end {
+                    if chars[stmt_start] == '*' && chars[stmt_start + 1] == '/' {
+                        stmt_start += 2;
+                        break;
+                    }
+                    stmt_start += 1;
+                }
+                continue;
+            }
+            
+            // 不是空白或注释，跳出循环
+            break;
         }
 
         // 移除尾部空白
-        let mut stmt_end = end;
         while stmt_end > stmt_start && chars[stmt_end - 1].is_whitespace() {
             stmt_end -= 1;
         }
@@ -753,5 +817,36 @@ SELECT 2;
         let sql = r#"SELECT `col;name` FROM `table`; SELECT 2;"#;
         let statements = splitter.split(sql);
         assert_eq!(statements.len(), 2);
+    }
+
+    #[test]
+    fn test_comment_before_select() {
+        // 测试用户报告的问题：注释在 SELECT 语句之前
+        let mut splitter = SqlSplitter::new(SqlDialect::mysql());
+        let sql = r#"-- 在此输入 SQL 查询
+SELECT * FROM t_affected_package LIMIT 10;"#;
+        let statements = splitter.split(sql);
+        assert_eq!(statements.len(), 1);
+        
+        // 验证提取的语句不包含注释
+        let stmt = &statements[0];
+        assert!(stmt.starts_with("SELECT"), "Statement should start with SELECT, got: {}", stmt);
+        
+        // 验证 is_query_statement 能正确识别
+        assert!(is_query_statement(stmt), "Should be recognized as query statement");
+    }
+
+    #[test]
+    fn test_multiple_comments_before_select() {
+        // 测试多个注释的情况
+        let mut splitter = SqlSplitter::new(SqlDialect::mysql());
+        let sql = r#"-- 注释1
+-- 注释2
+/* 多行注释 */
+SELECT 1;"#;
+        let statements = splitter.split(sql);
+        assert_eq!(statements.len(), 1);
+        let stmt = &statements[0];
+        assert!(stmt.starts_with("SELECT"), "Statement should start with SELECT, got: {}", stmt);
     }
 }
