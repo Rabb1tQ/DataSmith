@@ -199,7 +199,7 @@ const selectedRowKeys = ref<string[]>([])
 const totalRows = ref(0)
 const showFilterDialog = ref(false)
 const filterCondition = ref('')
-const limitRows = ref<number | null>(null)
+const limitRows = ref<number | undefined>(undefined)
 const tableStructure = ref<any[]>([]) // 表结构信息
 const primaryKeys = ref<string[]>([]) // 主键列
 

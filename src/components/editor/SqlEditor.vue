@@ -323,6 +323,7 @@
 <script setup lang="ts">
 import { h, onMounted, onUnmounted, watch, ref, computed } from 'vue'
 import * as monaco from 'monaco-editor'
+import { format as formatSqlWithLib, type FormatOptionsWithLanguage } from 'sql-formatter'
 import { registerSqlCompletionProvider, type SqlCompletionProvider } from '@/services/sqlAutocomplete'
 
 // 配置 Monaco Editor 环境（禁用 worker 以避免加载问题）
@@ -660,21 +661,46 @@ function stopExecution() {
   addMessage('info', '已停止执行')
 }
 
+// 根据数据库类型获取 SQL 方言
+function getSqlLanguage(dbType: string): string {
+  const languageMap: Record<string, string> = {
+    mysql: 'mysql',
+    postgresql: 'postgresql',
+    sqlite: 'sqlite',
+    mongodb: 'mysql',
+    redis: 'mysql',
+    elasticsearch: 'mysql',
+  }
+  return languageMap[dbType] || 'sql'
+}
+
 // 格式化 SQL
 function formatSql() {
   if (!editor) return
   const sql = editor.getValue()
-  // 简单格式化（后续可集成专业 SQL 格式化库）
-  const formatted = sql
-    .replace(/\bSELECT\b/gi, '\nSELECT')
-    .replace(/\bFROM\b/gi, '\nFROM')
-    .replace(/\bWHERE\b/gi, '\nWHERE')
-    .replace(/\bORDER BY\b/gi, '\nORDER BY')
-    .replace(/\bGROUP BY\b/gi, '\nGROUP BY')
-    .trim()
-  
-  editor.setValue(formatted)
-  message.success('SQL 已格式化')
+  if (!sql.trim()) {
+    message.warning('没有可格式化的内容')
+    return
+  }
+
+  try {
+    const dbType = connectionInfo.value?.db_type || 'mysql'
+    const language = getSqlLanguage(dbType)
+    
+    const options: FormatOptionsWithLanguage = {
+      language: language as any,
+      tabWidth: 2,
+      keywordCase: 'upper',
+      indentStyle: 'standard',
+    }
+    
+    const formatted = formatSqlWithLib(sql, options)
+    editor.setValue(formatted)
+    message.success('SQL 已格式化')
+  } catch (error) {
+    console.error('SQL 格式化失败:', error)
+    message.error('SQL 格式化失败，请检查语法')
+  }
 }
 
 // 清空编辑器
